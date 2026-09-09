@@ -1,0 +1,80 @@
+[
+  {
+    "id": "cust_001",
+    "name": "Arjun",
+    "age": 22,
+    "avatar": "🎮",
+    "phone": "+91 98765 12340",
+    "upi_id": "arjun@okaxis",
+    "preferred_method": "UPI",
+    "last_purchases": [
+      "Mechanical Gaming Keyboard",
+      "RGB Gaming Mousepad XL"
+    ],
+    "last_searches": [
+      "RGB",
+      "mechanical keyboard",
+      "gaming headset"
+    ]
+  },
+  {
+    "id": "cust_002",
+    "name": "Priya",
+    "age": 35,
+    "avatar": "💼",
+    "phone": "+91 98765 23451",
+    "upi_id": "priya@hdfcbank",
+    "preferred_method": "Card",
+    "last_purchases": [
+      "Ergonomic Office Chair",
+      "USB-C Hub 7-in-1"
+    ],
+    "last_searches": [
+      "desk organizer",
+      "monitor stand",
+      "WFH setup"
+    ]
+  },
+  {
+    "id": "cust_003",
+    "name": "Ramesh",
+    "age": 52,
+    "avatar": "🧓",
+    "phone": "+91 98765 34562",
+    "upi_id": "ramesh@sbi",
+    "preferred_method": "Netbanking",
+    "last_purchases": [
+      "Digital Blood Pressure Monitor",
+      "Herbal Wellness Tea Set"
+    ],
+    "last_searches": [
+      "watch",
+      "watch",
+      "watch",
+      "watch",
+      "watch",
+      "watch",
+      "walking shoes",
+      "comfort insoles",
+      "health monitor"
+    ]
+  },
+  {
+    "id": "cust_004",
+    "name": "Sneha",
+    "age": 28,
+    "avatar": "👗",
+    "phone": "+91 98765 45673",
+    "upi_id": "sneha@paytm",
+    "preferred_method": "UPI",
+    "last_purchases": [
+      "Trendy Running Sneakers",
+      "Oversized Street Hoodie"
+    ],
+    "last_searches": [
+      "trendy fashion",
+      "hoodie",
+      "wireless earbuds"
+    ]
+  }
+]

@@ -1,0 +1,101 @@
+[
+  {
+    "id": "emi_001",
+    "customerId": "cust_003",
+    "customerName": "Ramesh",
+    "phone": "+91 98765 34562",
+    "productName": "Digital Blood Pressure Monitor & Health Kit",
+    "totalAmount": 4500,
+    "totalInstallments": 3,
+    "securityPin": "1234",
+    "installments": [
+      {
+        "installmentNumber": 1,
+        "amount": 1500,
+        "dueDate": "2026-08-10",
+        "status": "paid",
+        "paidAt": "2026-08-10T11:20:00.000Z"
+      },
+      {
+        "installmentNumber": 2,
+        "amount": 1500,
+        "dueDate": "2026-09-10",
+        "status": "paid",
+        "paidAt": "2026-09-03T11:47:44.791Z"
+      },
+      {
+        "installmentNumber": 3,
+        "amount": 1500,
+        "dueDate": "2026-10-10",
+        "status": "upcoming",
+        "paidAt": null
+      }
+    ]
+  },
+  {
+    "id": "emi_002",
+    "customerId": "cust_001",
+    "customerName": "Arjun",
+    "phone": "+91 98765 12340",
+    "productName": "Mechanical Gaming Keyboard Pro",
+    "totalAmount": 3999,
+    "totalInstallments": 3,
+    "securityPin": "2222",
+    "installments": [
+      {
+        "installmentNumber": 1,
+        "amount": 1333,
+        "dueDate": "2026-08-15",
+        "status": "paid",
+        "paidAt": "2026-08-15T14:30:00.000Z"
+      },
+      {
+        "installmentNumber": 2,
+        "amount": 1333,
+        "dueDate": "2026-09-15",
+        "status": "paid",
+        "paidAt": "2026-09-03T12:35:21.702Z"
+      },
+      {
+        "installmentNumber": 3,
+        "amount": 1333,
+        "dueDate": "2026-10-15",
+        "status": "upcoming",
+        "paidAt": null
+      }
+    ]
+  },
+  {
+    "id": "emi_003",
+    "customerId": "cust_002",
+    "customerName": "Priya",
+    "phone": "+91 98765 23451",
+    "productName": "Ergonomic High-Back Office Chair",
+    "totalAmount": 8999,
+    "totalInstallments": 3,
+    "securityPin": "3535",
+    "installments": [
+      {
+        "installmentNumber": 1,
+        "amount": 3000,
+        "dueDate": "2026-08-01",
+        "status": "paid",
+        "paidAt": "2026-08-01T09:15:00.000Z"
+      },
+      {
+        "installmentNumber": 2,
+        "amount": 3000,
+        "dueDate": "2026-09-01",
+        "status": "pending",
+        "paidAt": null
+      },
+      {
+        "installmentNumber": 3,
+        "amount": 2999,
+        "dueDate": "2026-10-01",
+        "status": "upcoming",
+        "paidAt": null
+      }
+    ]
+  }
+]

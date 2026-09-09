@@ -1,0 +1,1142 @@
+[
+  {
+    "id": "prod_001",
+    "name": "Wireless Earbuds Pro",
+    "category": "electronics",
+    "price": 2499,
+    "stock": 25,
+    "tags": [
+      "audio",
+      "bluetooth",
+      "wireless",
+      "earbuds"
+    ],
+    "description": "Premium true wireless earbuds with active noise cancellation, 30-hour battery life, and crystal-clear sound quality.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "🎧"
+  },
+  {
+    "id": "prod_002",
+    "name": "Mechanical Gaming Keyboard",
+    "category": "gaming",
+    "price": 3999,
+    "stock": 18,
+    "tags": [
+      "keyboard",
+      "mechanical",
+      "RGB",
+      "gaming"
+    ],
+    "description": "Hot-swappable mechanical keyboard with per-key RGB lighting, tactile switches, and aluminum frame.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "⌨️"
+  },
+  {
+    "id": "prod_003",
+    "name": "USB-C Hub 7-in-1",
+    "category": "electronics",
+    "price": 1299,
+    "stock": 40,
+    "tags": [
+      "USB-C",
+      "hub",
+      "adapter",
+      "connectivity"
+    ],
+    "description": "Compact 7-in-1 USB-C hub with HDMI 4K, USB 3.0, SD card reader, and 100W power delivery.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "🔌"
+  },
+  {
+    "id": "prod_004",
+    "name": "Smartwatch Fitness Tracker",
+    "category": "electronics",
+    "price": 5999,
+    "stock": 12,
+    "tags": [
+      "smartwatch",
+      "fitness",
+      "health",
+      "tracker"
+    ],
+    "description": "Advanced smartwatch with heart rate monitor, SpO2 sensor, GPS tracking, and 7-day battery life.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "⌚"
+  },
+  {
+    "id": "prod_005",
+    "name": "Oversized Street Hoodie",
+    "category": "fashion",
+    "price": 1799,
+    "stock": 30,
+    "tags": [
+      "hoodie",
+      "streetwear",
+      "trendy",
+      "fashion"
+    ],
+    "description": "Premium cotton oversized hoodie with drop shoulders, kangaroo pocket, and minimalist design.",
+    "discount_percent": 20,
+    "discount_active": true,
+    "image": "👕"
+  },
+  {
+    "id": "prod_006",
+    "name": "Trendy Running Sneakers",
+    "category": "fashion",
+    "price": 3499,
+    "stock": 22,
+    "tags": [
+      "sneakers",
+      "running",
+      "trendy",
+      "shoes"
+    ],
+    "description": "Lightweight running sneakers with responsive cushioning, breathable mesh upper, and modern silhouette.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "👟"
+  },
+  {
+    "id": "prod_007",
+    "name": "Leather Bifold Wallet",
+    "category": "fashion",
+    "price": 899,
+    "stock": 50,
+    "tags": [
+      "wallet",
+      "leather",
+      "accessories"
+    ],
+    "description": "Genuine leather bifold wallet with RFID blocking, 8 card slots, and coin pocket.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "👛"
+  },
+  {
+    "id": "prod_008",
+    "name": "Digital Blood Pressure Monitor",
+    "category": "health",
+    "price": 2199,
+    "stock": 15,
+    "tags": [
+      "health",
+      "blood pressure",
+      "monitor",
+      "medical"
+    ],
+    "description": "Clinically validated automatic blood pressure monitor with large LCD display and memory for 120 readings.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "🩺"
+  },
+  {
+    "id": "prod_009",
+    "name": "Orthopedic Foot Cushions",
+    "category": "health",
+    "price": 499,
+    "stock": 60,
+    "tags": [
+      "foot",
+      "cushion",
+      "comfort",
+      "orthopedic",
+      "walking"
+    ],
+    "description": "Medical-grade gel foot cushions with arch support, shock absorption, and anti-slip design for all-day comfort.",
+    "discount_percent": 20,
+    "discount_active": true,
+    "image": "🦶"
+  },
+  {
+    "id": "prod_010",
+    "name": "Premium Yoga Mat",
+    "category": "health",
+    "price": 999,
+    "stock": 35,
+    "tags": [
+      "yoga",
+      "mat",
+      "fitness",
+      "exercise"
+    ],
+    "description": "Extra-thick eco-friendly yoga mat with non-slip surface, alignment lines, and carrying strap.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "🧘"
+  },
+  {
+    "id": "prod_011",
+    "name": "Herbal Wellness Tea Set",
+    "category": "health",
+    "price": 649,
+    "stock": 45,
+    "tags": [
+      "tea",
+      "herbal",
+      "wellness",
+      "health"
+    ],
+    "description": "Curated set of 6 organic herbal teas — chamomile, turmeric, ginger, peppermint, green tea, and ashwagandha.",
+    "discount_percent": 10,
+    "discount_active": false,
+    "image": "🍵"
+  },
+  {
+    "id": "prod_012",
+    "name": "Ergonomic Office Chair",
+    "category": "home",
+    "price": 8999,
+    "stock": 8,
+    "tags": [
+      "chair",
+      "ergonomic",
+      "office",
+      "WFH",
+      "desk"
+    ],
+    "description": "Full-mesh ergonomic chair with lumbar support, adjustable armrests, headrest, and 135° recline.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "🪑"
+  },
+  {
+    "id": "prod_013",
+    "name": "Bamboo Desk Organizer",
+    "category": "home",
+    "price": 699,
+    "stock": 55,
+    "tags": [
+      "desk",
+      "organizer",
+      "home",
+      "office",
+      "WFH"
+    ],
+    "description": "Multi-compartment bamboo desk organizer with phone stand, pen holder, and cable management slots.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "📦"
+  },
+  {
+    "id": "prod_014",
+    "name": "Smart LED Bulb (4-Pack)",
+    "category": "home",
+    "price": 399,
+    "stock": 70,
+    "tags": [
+      "LED",
+      "smart",
+      "bulb",
+      "home",
+      "lighting"
+    ],
+    "description": "WiFi-enabled smart LED bulbs with 16 million colors, voice control, and scheduling via app.",
+    "discount_percent": 25,
+    "discount_active": true,
+    "image": "💡"
+  },
+  {
+    "id": "prod_015",
+    "name": "RGB Gaming Mousepad XL",
+    "category": "gaming",
+    "price": 799,
+    "stock": 42,
+    "tags": [
+      "mousepad",
+      "RGB",
+      "gaming",
+      "desk"
+    ],
+    "description": "Extended RGB gaming mousepad with 12 lighting modes, non-slip rubber base, and smooth micro-weave surface.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "🖱️"
+  },
+  {
+    "id": "prod_016",
+    "name": "Walking Comfort Shoes",
+    "category": "health",
+    "price": 2799,
+    "stock": 20,
+    "tags": [
+      "walking",
+      "shoes",
+      "comfort",
+      "orthopedic"
+    ],
+    "description": "Ultra-lightweight walking shoes with memory foam insole, wide-fit design, and slip-resistant sole for all-day comfort.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "👞"
+  },
+  {
+    "id": "prod_017",
+    "name": "Ultra 5G Smartphone Pro",
+    "category": "electronics",
+    "price": 38999,
+    "stock": 15,
+    "tags": [
+      "mobile",
+      "phone",
+      "smartphone",
+      "5g",
+      "android",
+      "camera",
+      "cellular"
+    ],
+    "description": "Flagship 5G smartphone with 120Hz AMOLED display, 108MP AI camera, 5000mAh all-day battery, and 67W Turbo charging.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "📱"
+  },
+  {
+    "id": "prod_018",
+    "name": "Fast Wireless Charging Stand 3-in-1",
+    "category": "electronics",
+    "price": 1899,
+    "stock": 35,
+    "tags": [
+      "mobile",
+      "phone",
+      "charger",
+      "wireless",
+      "stand",
+      "accessories"
+    ],
+    "description": "Fast 15W Qi-certified wireless charging stand for mobile phone, smartwatch, and earbuds with overcharge protection.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "🔋"
+  },
+  {
+    "id": "dj_1",
+    "name": "Essence Mascara Lash Princess",
+    "category": "beauty",
+    "price": 849,
+    "stock": 99,
+    "tags": [
+      "beauty",
+      "mascara"
+    ],
+    "description": "The Essence Mascara Lash Princess is a popular mascara known for its volumizing and lengthening effects. Achieve dramatic lashes with this long-lasting and cruelty-free formula.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/beauty/essence-mascara-lash-princess/thumbnail.webp",
+    "brand": "Essence",
+    "rating": 2.56
+  },
+  {
+    "id": "dj_2",
+    "name": "Eyeshadow Palette with Mirror",
+    "category": "beauty",
+    "price": 1699,
+    "stock": 34,
+    "tags": [
+      "beauty",
+      "eyeshadow"
+    ],
+    "description": "The Eyeshadow Palette with Mirror offers a versatile range of eyeshadow shades for creating stunning eye looks. With a built-in mirror, it's convenient for on-the-go makeup application.",
+    "discount_percent": 18,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/beauty/eyeshadow-palette-with-mirror/thumbnail.webp",
+    "brand": "Glamour Beauty",
+    "rating": 2.86
+  },
+  {
+    "id": "dj_3",
+    "name": "Powder Canister",
+    "category": "beauty",
+    "price": 1274,
+    "stock": 89,
+    "tags": [
+      "beauty",
+      "face powder"
+    ],
+    "description": "The Powder Canister is a finely milled setting powder designed to set makeup and control shine. With a lightweight and translucent formula, it provides a smooth and matte finish.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/beauty/powder-canister/thumbnail.webp",
+    "brand": "Velvet Touch",
+    "rating": 4.64
+  },
+  {
+    "id": "dj_4",
+    "name": "Red Lipstick",
+    "category": "beauty",
+    "price": 1104,
+    "stock": 91,
+    "tags": [
+      "beauty",
+      "lipstick"
+    ],
+    "description": "The Red Lipstick is a classic and bold choice for adding a pop of color to your lips. With a creamy and pigmented formula, it provides a vibrant and long-lasting finish.",
+    "discount_percent": 12,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/beauty/red-lipstick/thumbnail.webp",
+    "brand": "Chic Cosmetics",
+    "rating": 4.36
+  },
+  {
+    "id": "dj_5",
+    "name": "Red Nail Polish",
+    "category": "beauty",
+    "price": 764,
+    "stock": 79,
+    "tags": [
+      "beauty",
+      "nail polish"
+    ],
+    "description": "The Red Nail Polish offers a rich and glossy red hue for vibrant and polished nails. With a quick-drying formula, it provides a salon-quality finish at home.",
+    "discount_percent": 11,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/beauty/red-nail-polish/thumbnail.webp",
+    "brand": "Nail Couture",
+    "rating": 4.32
+  },
+  {
+    "id": "dj_6",
+    "name": "Calvin Klein CK One",
+    "category": "fragrances",
+    "price": 4249,
+    "stock": 29,
+    "tags": [
+      "fragrances",
+      "perfumes"
+    ],
+    "description": "CK One by Calvin Klein is a classic unisex fragrance, known for its fresh and clean scent. It's a versatile fragrance suitable for everyday wear.",
+    "discount_percent": 2,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/fragrances/calvin-klein-ck-one/thumbnail.webp",
+    "brand": "Calvin Klein",
+    "rating": 4.37
+  },
+  {
+    "id": "dj_7",
+    "name": "Chanel Coco Noir Eau De",
+    "category": "fragrances",
+    "price": 11049,
+    "stock": 58,
+    "tags": [
+      "fragrances",
+      "perfumes"
+    ],
+    "description": "Coco Noir by Chanel is an elegant and mysterious fragrance, featuring notes of grapefruit, rose, and sandalwood. Perfect for evening occasions.",
+    "discount_percent": 17,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/fragrances/chanel-coco-noir-eau-de/thumbnail.webp",
+    "brand": "Chanel",
+    "rating": 4.26
+  },
+  {
+    "id": "dj_8",
+    "name": "Dior J'adore",
+    "category": "fragrances",
+    "price": 7649,
+    "stock": 98,
+    "tags": [
+      "fragrances",
+      "perfumes"
+    ],
+    "description": "J'adore by Dior is a luxurious and floral fragrance, known for its blend of ylang-ylang, rose, and jasmine. It embodies femininity and sophistication.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/fragrances/dior-j'adore/thumbnail.webp",
+    "brand": "Dior",
+    "rating": 3.8
+  },
+  {
+    "id": "dj_9",
+    "name": "Dolce Shine Eau de",
+    "category": "fragrances",
+    "price": 5949,
+    "stock": 4,
+    "tags": [
+      "fragrances",
+      "perfumes"
+    ],
+    "description": "Dolce Shine by Dolce & Gabbana is a vibrant and fruity fragrance, featuring notes of mango, jasmine, and blonde woods. It's a joyful and youthful scent.",
+    "discount_percent": 1,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/fragrances/dolce-shine-eau-de/thumbnail.webp",
+    "brand": "Dolce & Gabbana",
+    "rating": 3.96
+  },
+  {
+    "id": "dj_10",
+    "name": "Gucci Bloom Eau de",
+    "category": "fragrances",
+    "price": 6799,
+    "stock": 91,
+    "tags": [
+      "fragrances",
+      "perfumes"
+    ],
+    "description": "Gucci Bloom by Gucci is a floral and captivating fragrance, with notes of tuberose, jasmine, and Rangoon creeper. It's a modern and romantic scent.",
+    "discount_percent": 14,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/fragrances/gucci-bloom-eau-de/thumbnail.webp",
+    "brand": "Gucci",
+    "rating": 2.74
+  },
+  {
+    "id": "dj_11",
+    "name": "Annibale Colombo Bed",
+    "category": "furniture",
+    "price": 161499,
+    "stock": 88,
+    "tags": [
+      "furniture",
+      "beds"
+    ],
+    "description": "The Annibale Colombo Bed is a luxurious and elegant bed frame, crafted with high-quality materials for a comfortable and stylish bedroom.",
+    "discount_percent": 9,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/furniture/annibale-colombo-bed/thumbnail.webp",
+    "brand": "Annibale Colombo",
+    "rating": 4.77
+  },
+  {
+    "id": "dj_12",
+    "name": "Annibale Colombo Sofa",
+    "category": "furniture",
+    "price": 212499,
+    "stock": 60,
+    "tags": [
+      "furniture",
+      "sofas"
+    ],
+    "description": "The Annibale Colombo Sofa is a sophisticated and comfortable seating option, featuring exquisite design and premium upholstery for your living room.",
+    "discount_percent": 14,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/furniture/annibale-colombo-sofa/thumbnail.webp",
+    "brand": "Annibale Colombo",
+    "rating": 3.92
+  },
+  {
+    "id": "dj_13",
+    "name": "Bedside Table African Cherry",
+    "category": "furniture",
+    "price": 25499,
+    "stock": 64,
+    "tags": [
+      "furniture",
+      "bedside tables"
+    ],
+    "description": "The Bedside Table in African Cherry is a stylish and functional addition to your bedroom, providing convenient storage space and a touch of elegance.",
+    "discount_percent": 19,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/furniture/bedside-table-african-cherry/thumbnail.webp",
+    "brand": "Furniture Co.",
+    "rating": 2.87
+  },
+  {
+    "id": "dj_14",
+    "name": "Knoll Saarinen Executive Conference Chair",
+    "category": "furniture",
+    "price": 42499,
+    "stock": 26,
+    "tags": [
+      "furniture",
+      "office chairs"
+    ],
+    "description": "The Knoll Saarinen Executive Conference Chair is a modern and ergonomic chair, perfect for your office or conference room with its timeless design.",
+    "discount_percent": 2,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/furniture/knoll-saarinen-executive-conference-chair/thumbnail.webp",
+    "brand": "Knoll",
+    "rating": 4.88
+  },
+  {
+    "id": "dj_15",
+    "name": "Wooden Bathroom Sink With Mirror",
+    "category": "furniture",
+    "price": 67999,
+    "stock": 7,
+    "tags": [
+      "furniture",
+      "bathroom"
+    ],
+    "description": "The Wooden Bathroom Sink with Mirror is a unique and stylish addition to your bathroom, featuring a wooden sink countertop and a matching mirror.",
+    "discount_percent": 9,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/furniture/wooden-bathroom-sink-with-mirror/thumbnail.webp",
+    "brand": "Bath Trends",
+    "rating": 3.59
+  },
+  {
+    "id": "dj_16",
+    "name": "Apple",
+    "category": "groceries",
+    "price": 299,
+    "stock": 8,
+    "tags": [
+      "fruits"
+    ],
+    "description": "Fresh and crisp apples, perfect for snacking or incorporating into various recipes.",
+    "discount_percent": 13,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/apple/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.19
+  },
+  {
+    "id": "dj_17",
+    "name": "Beef Steak",
+    "category": "groceries",
+    "price": 1104,
+    "stock": 86,
+    "tags": [
+      "meat"
+    ],
+    "description": "High-quality beef steak, great for grilling or cooking to your preferred level of doneness.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/beef-steak/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.47
+  },
+  {
+    "id": "dj_18",
+    "name": "Cat Food",
+    "category": "groceries",
+    "price": 764,
+    "stock": 46,
+    "tags": [
+      "pet supplies",
+      "cat food"
+    ],
+    "description": "Nutritious cat food formulated to meet the dietary needs of your feline friend.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/cat-food/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.13
+  },
+  {
+    "id": "dj_19",
+    "name": "Chicken Meat",
+    "category": "groceries",
+    "price": 849,
+    "stock": 97,
+    "tags": [
+      "meat"
+    ],
+    "description": "Fresh and tender chicken meat, suitable for various culinary preparations.",
+    "discount_percent": 14,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/chicken-meat/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.19
+  },
+  {
+    "id": "dj_20",
+    "name": "Cooking Oil",
+    "category": "groceries",
+    "price": 424,
+    "stock": 10,
+    "tags": [
+      "cooking essentials"
+    ],
+    "description": "Versatile cooking oil suitable for frying, sautéing, and various culinary applications.",
+    "discount_percent": 9,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/cooking-oil/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.8
+  },
+  {
+    "id": "dj_21",
+    "name": "Cucumber",
+    "category": "groceries",
+    "price": 299,
+    "stock": 84,
+    "tags": [
+      "vegetables"
+    ],
+    "description": "Crisp and hydrating cucumbers, ideal for salads, snacks, or as a refreshing side.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/cucumber/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.07
+  },
+  {
+    "id": "dj_22",
+    "name": "Dog Food",
+    "category": "groceries",
+    "price": 934,
+    "stock": 71,
+    "tags": [
+      "pet supplies",
+      "dog food"
+    ],
+    "description": "Specially formulated dog food designed to provide essential nutrients for your canine companion.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/dog-food/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.55
+  },
+  {
+    "id": "dj_23",
+    "name": "Eggs",
+    "category": "groceries",
+    "price": 299,
+    "stock": 9,
+    "tags": [
+      "dairy"
+    ],
+    "description": "Fresh eggs, a versatile ingredient for baking, cooking, or breakfast.",
+    "discount_percent": 11,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/eggs/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 2.53
+  },
+  {
+    "id": "dj_24",
+    "name": "Fish Steak",
+    "category": "groceries",
+    "price": 1274,
+    "stock": 74,
+    "tags": [
+      "seafood"
+    ],
+    "description": "Quality fish steak, suitable for grilling, baking, or pan-searing.",
+    "discount_percent": 4,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/fish-steak/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.78
+  },
+  {
+    "id": "dj_25",
+    "name": "Green Bell Pepper",
+    "category": "groceries",
+    "price": 299,
+    "stock": 33,
+    "tags": [
+      "vegetables"
+    ],
+    "description": "Fresh and vibrant green bell pepper, perfect for adding color and flavor to your dishes.",
+    "discount_percent": 0,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/green-bell-pepper/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.25
+  },
+  {
+    "id": "dj_26",
+    "name": "Green Chili Pepper",
+    "category": "groceries",
+    "price": 299,
+    "stock": 3,
+    "tags": [
+      "vegetables"
+    ],
+    "description": "Spicy green chili pepper, ideal for adding heat to your favorite recipes.",
+    "discount_percent": 1,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/green-chili-pepper/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.66
+  },
+  {
+    "id": "dj_27",
+    "name": "Honey Jar",
+    "category": "groceries",
+    "price": 594,
+    "stock": 34,
+    "tags": [
+      "condiments"
+    ],
+    "description": "Pure and natural honey in a convenient jar, perfect for sweetening beverages or drizzling over food.",
+    "discount_percent": 14,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/honey-jar/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.97
+  },
+  {
+    "id": "dj_28",
+    "name": "Ice Cream",
+    "category": "groceries",
+    "price": 467,
+    "stock": 27,
+    "tags": [
+      "desserts"
+    ],
+    "description": "Creamy and delicious ice cream, available in various flavors for a delightful treat.",
+    "discount_percent": 9,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/ice-cream/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.39
+  },
+  {
+    "id": "dj_29",
+    "name": "Juice",
+    "category": "groceries",
+    "price": 339,
+    "stock": 50,
+    "tags": [
+      "beverages"
+    ],
+    "description": "Refreshing fruit juice, packed with vitamins and great for staying hydrated.",
+    "discount_percent": 12,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/juice/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.94
+  },
+  {
+    "id": "dj_30",
+    "name": "Kiwi",
+    "category": "groceries",
+    "price": 299,
+    "stock": 99,
+    "tags": [
+      "fruits"
+    ],
+    "description": "Nutrient-rich kiwi, perfect for snacking or adding a tropical twist to your dishes.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/kiwi/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.93
+  },
+  {
+    "id": "dj_31",
+    "name": "Lemon",
+    "category": "groceries",
+    "price": 299,
+    "stock": 31,
+    "tags": [
+      "fruits"
+    ],
+    "description": "Zesty and tangy lemons, versatile for cooking, baking, or making refreshing beverages.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/lemon/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.53
+  },
+  {
+    "id": "dj_32",
+    "name": "Milk",
+    "category": "groceries",
+    "price": 299,
+    "stock": 27,
+    "tags": [
+      "dairy"
+    ],
+    "description": "Fresh and nutritious milk, a staple for various recipes and daily consumption.",
+    "discount_percent": 14,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/milk/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 2.61
+  },
+  {
+    "id": "dj_33",
+    "name": "Mulberry",
+    "category": "groceries",
+    "price": 424,
+    "stock": 99,
+    "tags": [
+      "fruits"
+    ],
+    "description": "Sweet and juicy mulberries, perfect for snacking or adding to desserts and cereals.",
+    "discount_percent": 13,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/mulberry/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.95
+  },
+  {
+    "id": "dj_34",
+    "name": "Nescafe Coffee",
+    "category": "groceries",
+    "price": 679,
+    "stock": 57,
+    "tags": [
+      "beverages",
+      "coffee"
+    ],
+    "description": "Quality coffee from Nescafe, available in various blends for a rich and satisfying cup.",
+    "discount_percent": 2,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/nescafe-coffee/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.82
+  },
+  {
+    "id": "dj_35",
+    "name": "Potatoes",
+    "category": "groceries",
+    "price": 299,
+    "stock": 13,
+    "tags": [
+      "vegetables"
+    ],
+    "description": "Versatile and starchy potatoes, great for roasting, mashing, or as a side dish.",
+    "discount_percent": 5,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/potatoes/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.81
+  },
+  {
+    "id": "dj_36",
+    "name": "Protein Powder",
+    "category": "groceries",
+    "price": 1699,
+    "stock": 80,
+    "tags": [
+      "health supplements"
+    ],
+    "description": "Nutrient-packed protein powder, ideal for supplementing your diet with essential proteins.",
+    "discount_percent": 8,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/protein-powder/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.18
+  },
+  {
+    "id": "dj_37",
+    "name": "Red Onions",
+    "category": "groceries",
+    "price": 299,
+    "stock": 82,
+    "tags": [
+      "vegetables"
+    ],
+    "description": "Flavorful and aromatic red onions, perfect for adding depth to your savory dishes.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/red-onions/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.2
+  },
+  {
+    "id": "dj_38",
+    "name": "Rice",
+    "category": "groceries",
+    "price": 509,
+    "stock": 59,
+    "tags": [
+      "grains"
+    ],
+    "description": "High-quality rice, a staple for various cuisines and a versatile base for many dishes.",
+    "discount_percent": 9,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/rice/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.18
+  },
+  {
+    "id": "dj_39",
+    "name": "Soft Drinks",
+    "category": "groceries",
+    "price": 299,
+    "stock": 53,
+    "tags": [
+      "beverages"
+    ],
+    "description": "Assorted soft drinks in various flavors, perfect for refreshing beverages.",
+    "discount_percent": 17,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/soft-drinks/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.75
+  },
+  {
+    "id": "dj_40",
+    "name": "Strawberry",
+    "category": "groceries",
+    "price": 339,
+    "stock": 46,
+    "tags": [
+      "fruits"
+    ],
+    "description": "Sweet and succulent strawberries, great for snacking, desserts, or blending into smoothies.",
+    "discount_percent": 1,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/strawberry/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.08
+  },
+  {
+    "id": "dj_41",
+    "name": "Tissue Paper Box",
+    "category": "groceries",
+    "price": 299,
+    "stock": 86,
+    "tags": [
+      "household essentials"
+    ],
+    "description": "Convenient tissue paper box for everyday use, providing soft and absorbent tissues.",
+    "discount_percent": 13,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/tissue-paper-box/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 2.69
+  },
+  {
+    "id": "dj_42",
+    "name": "Water",
+    "category": "groceries",
+    "price": 299,
+    "stock": 53,
+    "tags": [
+      "beverages"
+    ],
+    "description": "Pure and refreshing bottled water, essential for staying hydrated throughout the day.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/groceries/water/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.96
+  },
+  {
+    "id": "dj_43",
+    "name": "Decoration Swing",
+    "category": "home-decoration",
+    "price": 5099,
+    "stock": 47,
+    "tags": [
+      "home decor",
+      "swing"
+    ],
+    "description": "The Decoration Swing is a charming addition to your home decor. Crafted with intricate details, it adds a touch of elegance and whimsy to any room.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/home-decoration/decoration-swing/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.16
+  },
+  {
+    "id": "dj_44",
+    "name": "Family Tree Photo Frame",
+    "category": "home-decoration",
+    "price": 2549,
+    "stock": 77,
+    "tags": [
+      "home decor",
+      "photo frame"
+    ],
+    "description": "The Family Tree Photo Frame is a sentimental and stylish way to display your cherished family memories. With multiple photo slots, it tells the story of your loved ones.",
+    "discount_percent": 15,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/home-decoration/family-tree-photo-frame/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.53
+  },
+  {
+    "id": "dj_45",
+    "name": "House Showpiece Plant",
+    "category": "home-decoration",
+    "price": 3399,
+    "stock": 28,
+    "tags": [
+      "home decor",
+      "artificial plants"
+    ],
+    "description": "The House Showpiece Plant is an artificial plant that brings a touch of nature to your home without the need for maintenance. It adds greenery and style to any space.",
+    "discount_percent": 7,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/home-decoration/house-showpiece-plant/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.67
+  },
+  {
+    "id": "dj_46",
+    "name": "Plant Pot",
+    "category": "home-decoration",
+    "price": 1274,
+    "stock": 59,
+    "tags": [
+      "home decor",
+      "plant accessories"
+    ],
+    "description": "The Plant Pot is a stylish container for your favorite plants. With a sleek design, it complements your indoor or outdoor garden, adding a modern touch to your plant display.",
+    "discount_percent": 7,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/home-decoration/plant-pot/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.01
+  },
+  {
+    "id": "dj_47",
+    "name": "Table Lamp",
+    "category": "home-decoration",
+    "price": 4249,
+    "stock": 9,
+    "tags": [
+      "home decor",
+      "lighting"
+    ],
+    "description": "The Table Lamp is a functional and decorative lighting solution for your living space. With a modern design, it provides both ambient and task lighting, enhancing the atmosphere.",
+    "discount_percent": 7,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/home-decoration/table-lamp/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.55
+  },
+  {
+    "id": "dj_48",
+    "name": "Bamboo Spatula",
+    "category": "kitchen-accessories",
+    "price": 679,
+    "stock": 37,
+    "tags": [
+      "kitchen tools",
+      "utensils"
+    ],
+    "description": "The Bamboo Spatula is a versatile kitchen tool made from eco-friendly bamboo. Ideal for flipping, stirring, and serving various dishes.",
+    "discount_percent": 3,
+    "discount_active": false,
+    "image": "https://cdn.dummyjson.com/product-images/kitchen-accessories/bamboo-spatula/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.27
+  },
+  {
+    "id": "dj_49",
+    "name": "Black Aluminium Cup",
+    "category": "kitchen-accessories",
+    "price": 509,
+    "stock": 75,
+    "tags": [
+      "drinkware",
+      "cups"
+    ],
+    "description": "The Black Aluminium Cup is a stylish and durable cup suitable for both hot and cold beverages. Its sleek black design adds a modern touch to your drinkware collection.",
+    "discount_percent": 16,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/kitchen-accessories/black-aluminium-cup/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 4.46
+  },
+  {
+    "id": "dj_50",
+    "name": "Black Whisk",
+    "category": "kitchen-accessories",
+    "price": 849,
+    "stock": 73,
+    "tags": [
+      "kitchen tools",
+      "utensils"
+    ],
+    "description": "The Black Whisk is a kitchen essential for whisking and beating ingredients. Its ergonomic handle and sleek design make it a practical and stylish tool.",
+    "discount_percent": 10,
+    "discount_active": true,
+    "image": "https://cdn.dummyjson.com/product-images/kitchen-accessories/black-whisk/thumbnail.webp",
+    "brand": "ShopMind Select",
+    "rating": 3.9
+  }
+]
