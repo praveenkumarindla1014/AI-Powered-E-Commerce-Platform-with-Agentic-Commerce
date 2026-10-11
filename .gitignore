@@ -14,8 +14,9 @@ node_modules/
 dist/
 build/
 
-# Runtime data
-backend/data/audit_logs.json
+# Runtime data (created from backend/data/seed/ on first start)
+backend/data/*.json
+backend/data/*.tmp
 
 # Logs
 npm-debug.log*

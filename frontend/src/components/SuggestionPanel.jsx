@@ -1,191 +1,88 @@
-import { useState } from 'react';
-import { useApp } from '../App';
+import { Link } from 'react-router-dom';
+import { ProductImage } from './ui';
+import { formatINR, hasDiscount, unitPrice } from '../utils/format';
 
-function SuggestionPanel({ suggestion, product, onAccept, onDismiss, loading }) {
-  const [dismissed, setDismissed] = useState(false);
-
+function SuggestionPanel({ suggestion, product, blocked, loading, onAccept, onDismiss }) {
   if (loading) {
     return (
-      <div className="glass-card animate-pulse-glow" style={{
-        padding: '24px',
-        marginTop: '20px',
-        borderColor: 'var(--accent-border)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <span style={{ fontSize: '24px' }}>🧠</span>
+      <div className="card card-accent">
+        <div className="card-title">
+          <span className="spinner" />
           <div>
-            <h3 style={{ fontSize: '16px', fontWeight: '600' }}>AI is thinking...</h3>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-              Analyzing your profile and cart to find the perfect suggestion
-            </p>
+            <h3>Finding something that goes with your cart…</h3>
+            <p className="small muted">Checking your profile, searches and our guardrails</p>
           </div>
         </div>
-        <div style={{
-          height: '80px',
-          background: 'linear-gradient(90deg, var(--bg-tertiary), var(--bg-secondary), var(--bg-tertiary))',
-          backgroundSize: '200% 100%',
-          animation: 'shimmer 1.5s linear infinite',
-          borderRadius: 'var(--radius-md)',
-        }} />
+        <div className="skeleton" style={{ height: 76 }} />
       </div>
     );
   }
 
-  if (!suggestion || !product || dismissed) return null;
-
-  const discountedPrice = product.discount_active
-    ? product.price * (1 - suggestion.discount_percent / 100)
-    : product.price;
+  if (!suggestion && !blocked) return null;
 
   return (
-    <div className="glass-card animate-slide-up" style={{
-      padding: '24px',
-      marginTop: '20px',
-      borderColor: 'var(--accent-border)',
-      background: 'linear-gradient(135deg, var(--bg-card), rgba(217, 130, 43, 0.05))',
-    }}>
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-        <div style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '50%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '20px',
-          background: 'var(--accent-glow)',
-          border: '1px solid var(--accent-border)',
-        }}>
-          🧠
-        </div>
+    <div className="card card-accent fade-in">
+      <div className="row-between" style={{ marginBottom: 14 }}>
         <div>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', color: 'var(--text-primary)' }}>
-            AI Suggestion
-          </h3>
-          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Personalized recommendation for you
-          </p>
+          <h3>Recommended for you</h3>
+          <p className="small muted">Explainable cross-sell, checked against store guardrails</p>
         </div>
-        <span className="badge badge-accent" style={{ marginLeft: 'auto' }}>
-          Powered by GPT
-        </span>
+        {suggestion && (
+          <span className={`badge ${suggestion.source === 'ai' ? 'badge-accent' : 'badge-neutral'}`}>
+            {suggestion.source === 'ai' ? 'AI pick' : 'Rules engine'}
+          </span>
+        )}
       </div>
 
-      {/* Product Suggestion */}
-      <div style={{
-        display: 'flex',
-        gap: '16px',
-        padding: '16px',
-        background: 'var(--bg-primary)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--border-primary)',
-        marginBottom: '16px',
-      }}>
-        <div style={{
-          width: '64px',
-          height: '64px',
-          borderRadius: 'var(--radius-md)',
-          background: 'var(--bg-tertiary)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '32px',
-          flexShrink: 0,
-          overflow: 'hidden',
-        }}>
-          {product.image && product.image.startsWith('http') ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-            />
-          ) : (
-            product.image || '📦'
-          )}
-        </div>
-        <div style={{ flex: 1 }}>
-          <h4 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>
-            {suggestion.suggestion_name}
-          </h4>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', marginBottom: '4px' }}>
-            <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-primary)' }}>
-              ₹{Math.round(discountedPrice).toLocaleString()}
-            </span>
-            {suggestion.discount_percent > 0 && (
-              <>
-                <span style={{ fontSize: '13px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>
-                  ₹{product.price.toLocaleString()}
-                </span>
-                <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                  {suggestion.discount_percent}% OFF
-                </span>
-              </>
-            )}
+      {blocked && (
+        <div className="notice notice-warning" style={{ marginBottom: 14 }}>
+          <div>
+            <div className="notice-title">Guardrail blocked “{blocked.productName}”</div>
+            {blocked.reason}
           </div>
-          <span className="badge badge-accent" style={{ fontSize: '10px' }}>
-            {product.category}
-          </span>
         </div>
-      </div>
+      )}
 
-      {/* Reasoning */}
-      <div style={{
-        padding: '12px 16px',
-        background: 'var(--bg-tertiary)',
-        borderRadius: 'var(--radius-md)',
-        marginBottom: '16px',
-        borderLeft: '3px solid var(--accent-primary)',
-      }}>
-        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-          💡 Why this was suggested
-        </div>
-        <p style={{ fontSize: '14px', color: 'var(--text-primary)', lineHeight: '1.5' }}>
-          {suggestion.reasoning}
-        </p>
-      </div>
+      {suggestion && product && (
+        <>
+          <div className="row" style={{ gap: 14, marginBottom: 14, alignItems: 'flex-start' }}>
+            <Link to={`/product/${product.id}`} className="thumb"><ProductImage image={product.image} name={product.name} size={30} /></Link>
+            <div className="grow">
+              <Link to={`/product/${product.id}`} className="cart-line-name">{product.name}</Link>
+              <div className="price-row" style={{ marginTop: 2 }}>
+                <span style={{ fontWeight: 700 }}>{formatINR(unitPrice(product))}</span>
+                {hasDiscount(product) && (
+                  <>
+                    <span className="small strike">{formatINR(product.price)}</span>
+                    <span className="badge badge-success">{product.discount_percent}% off</span>
+                  </>
+                )}
+              </div>
+              <span className="small muted">Within the {formatINR(suggestion.maxPrice)} price cap for a {formatINR(suggestion.cartValue)} cart</span>
+            </div>
+          </div>
 
-      {/* Confidence Bar */}
-      <div style={{ marginBottom: '16px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          marginBottom: '6px',
-          fontSize: '12px',
-        }}>
-          <span style={{ color: 'var(--text-muted)' }}>Confidence Score</span>
-          <span style={{ color: 'var(--accent-primary)', fontWeight: '600' }}>
-            {Math.round(suggestion.confidence * 100)}%
-          </span>
-        </div>
-        <div className="confidence-bar-track">
-          <div
-            className="confidence-bar-fill"
-            style={{ width: `${suggestion.confidence * 100}%` }}
-          />
-        </div>
-      </div>
+          <div className="reasoning" style={{ marginBottom: 14 }}>
+            <div className="reasoning-label">Why this?</div>
+            {suggestion.reasoning}
+          </div>
 
-      {/* Action Buttons */}
-      <div style={{ display: 'flex', gap: '12px' }}>
-        <button
-          className="btn-success"
-          style={{ flex: 1, justifyContent: 'center' }}
-          onClick={() => onAccept(suggestion, product)}
-        >
-          ✓ Accept & Add to Cart
-        </button>
-        <button
-          className="btn-secondary"
-          style={{ flex: 1, justifyContent: 'center' }}
-          onClick={() => {
-            setDismissed(true);
-            onDismiss(suggestion);
-          }}
-        >
-          ✕ Dismiss
-        </button>
-      </div>
+          <div style={{ marginBottom: 16 }}>
+            <div className="row-between small" style={{ marginBottom: 6 }}>
+              <span className="muted">Confidence</span>
+              <span className="accent" style={{ fontWeight: 650 }}>{Math.round(suggestion.confidence * 100)}%</span>
+            </div>
+            <div className="confidence-track">
+              <div className="confidence-fill" style={{ width: `${Math.round(suggestion.confidence * 100)}%` }} />
+            </div>
+          </div>
+
+          <div className="row">
+            <button className="btn btn-success grow" onClick={() => onAccept(suggestion, product)}>Add to cart</button>
+            <button className="btn btn-secondary grow" onClick={() => onDismiss(suggestion)}>Show another</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -1,269 +1,242 @@
-import { useState, useEffect } from 'react';
-import { getGuardrailConfig, updateGuardrailConfig, getProducts, toggleDiscount, getRecoveredCarts } from '../api';
-import { useApp } from '../App';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { useApp } from '../context/appContext';
+import {
+  getGuardrailConfig, updateGuardrailConfig, updateDiscount, getRecoveredCarts,
+  syncDummyJson, resetCatalog, resetDemoData,
+} from '../api';
+import { Loading, ProductImage } from '../components/ui';
+import { formatDateTime, formatINR } from '../utils/format';
 
-function Admin() {
+const TABS = [
+  { key: 'guardrails', label: 'Guardrails' },
+  { key: 'growth', label: 'Growth features' },
+  { key: 'discounts', label: 'Discounts' },
+  { key: 'recovery', label: 'Recovery links' },
+  { key: 'data', label: 'Catalog & data' },
+];
+
+const FEATURES = [
+  { key: 'enableAbandonedCartRecovery', label: 'Abandoned cart recovery', desc: 'Save idle carts and create a 24-hour recovery link' },
+  { key: 'enablePaymentMethodReorder', label: 'Smart payment method order', desc: "Show the customer's most likely method first — never hides any method" },
+  { key: 'enableEmiSuggestion', label: 'EMI suggestions', desc: 'Offer no-cost EMI only for carts above the threshold' },
+];
+
+const CART_STATUS = { pending: 'badge-warning', recovered: 'badge-success', closed: 'badge-neutral', expired: 'badge-error' };
+
+function NumberField({ label, hint, value, onChange, min, max, step, suffix }) {
+  return (
+    <div>
+      <label className="field-label">{label}</label>
+      <div className="row">
+        <input type="number" className="input" value={value} min={min} max={max} step={step} onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))} />
+        {suffix && <span className="muted">{suffix}</span>}
+      </div>
+      {hint && <p className="field-hint">{hint}</p>}
+    </div>
+  );
+}
+
+function DiscountRow({ product, onSaved }) {
   const { showToast } = useApp();
-  const [config, setConfig] = useState({
-    maxSuggestionPricePercent: 30,
-    maxAutoApproveAmount: 2000,
-    abandonedCartTimeout: 60,
-    emiThreshold: 3000,
-    enableAbandonedCartRecovery: true,
-    enablePaymentMethodReorder: true,
-    enableEmiSuggestion: true,
-  });
-  const [products, setProducts] = useState([]);
-  const [recoveredCarts, setRecoveredCarts] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [percent, setPercent] = useState(product.discount_percent);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState('guardrails');
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { setPercent(product.discount_percent); }, [product.discount_percent]);
 
-  async function loadData() {
-    try {
-      const [configData, productsData, cartsData] = await Promise.all([
-        getGuardrailConfig(),
-        getProducts(),
-        getRecoveredCarts().catch(() => ({ carts: [] })),
-      ]);
-      setConfig(configData.config);
-      setProducts(productsData.products);
-      setRecoveredCarts(cartsData.carts || []);
-    } catch (err) {
-      console.error('Failed to load admin data:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function handleSaveConfig() {
+  async function save(changes) {
     setSaving(true);
     try {
-      const data = await updateGuardrailConfig(config);
-      setConfig(data.config);
-      showToast('success', 'Settings Saved', 'All guardrail and growth feature settings updated');
+      await updateDiscount(product.id, changes);
+      onSaved();
     } catch (err) {
-      showToast('error', 'Save Failed', err.message);
+      showToast('error', 'Could not update discount', err.message);
+      setPercent(product.discount_percent);
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleToggleDiscount(productId, currentActive) {
-    try {
-      await toggleDiscount(productId, !currentActive);
-      setProducts(prev => prev.map(p => p.id === productId ? { ...p, discount_active: !currentActive } : p));
-      showToast('success', 'Discount Updated', `Discount ${!currentActive ? 'enabled' : 'disabled'}`);
-    } catch (err) { showToast('error', 'Update Failed', err.message); }
+  function commitPercent() {
+    if (Number(percent) !== product.discount_percent) save({ discount_percent: Number(percent) });
   }
-
-  async function handleDiscountPercentChange(productId, percent) {
-    try {
-      await toggleDiscount(productId, undefined, Number(percent));
-      setProducts(prev => prev.map(p => p.id === productId ? { ...p, discount_percent: Number(percent) } : p));
-    } catch (err) { console.error('Failed to update discount:', err); }
-  }
-
-  if (loading) {
-    return (
-      <div className="page-container" style={{ textAlign: 'center', padding: '80px' }}>
-        <p style={{ color: 'var(--text-muted)' }}>Loading admin settings...</p>
-      </div>
-    );
-  }
-
-  const tabs = [
-    { key: 'guardrails', label: '🛡️ Guardrails', },
-    { key: 'growth', label: '🚀 Growth Features', },
-    { key: 'discounts', label: '🎉 Discounts', },
-    { key: 'recovered', label: '📬 Recovered Carts', },
-  ];
 
   return (
-    <div className="page-container animate-fade-in">
-      <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '8px', letterSpacing: '-0.5px' }}>
-        ⚙️ Admin & Settings
-      </h1>
-      <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>
-        Configure guardrails, growth features, and product discounts
-      </p>
+    <div className="row" style={{ padding: '10px 16px', borderTop: '1px solid var(--border-primary)', gap: 12 }}>
+      <div className="thumb" style={{ width: 36, height: 36 }}><ProductImage image={product.image} name={product.name} size={18} /></div>
+      <div className="grow">
+        <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{product.name}</div>
+        <div className="small muted">{formatINR(product.price)} · {product.stock} in stock</div>
+      </div>
+      <input
+        type="number" className="input" style={{ width: 74, padding: '6px 8px', textAlign: 'center' }} min={0} max={90}
+        value={percent} onChange={e => setPercent(e.target.value)} onBlur={commitPercent}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); }} aria-label={`Discount percent for ${product.name}`}
+      />
+      <span className="muted">%</span>
+      <button
+        className={`switch${product.discount_active ? ' on' : ''}`} disabled={saving}
+        onClick={() => save({ discount_active: !product.discount_active })}
+        aria-label={`${product.discount_active ? 'Disable' : 'Enable'} discount for ${product.name}`} aria-pressed={product.discount_active}
+      />
+    </div>
+  );
+}
 
-      {/* Tab Navigation */}
-      <div style={{ display: 'flex', gap: '4px', marginBottom: '24px', borderBottom: '1px solid var(--border-primary)', paddingBottom: '12px' }}>
-        {tabs.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{
-            padding: '8px 18px', borderRadius: 'var(--radius-md)', fontSize: '14px', fontWeight: '500', cursor: 'pointer', border: '1px solid', transition: 'all 0.2s ease',
-            borderColor: activeTab === tab.key ? 'var(--accent-primary)' : 'transparent',
-            background: activeTab === tab.key ? 'var(--accent-glow)' : 'transparent',
-            color: activeTab === tab.key ? 'var(--accent-primary)' : 'var(--text-muted)',
-          }}>
-            {tab.label}
-          </button>
+function Admin() {
+  const { products, reloadProducts, reloadCustomers, clearCart, showToast, health } = useApp();
+  const [tab, setTab] = useState('guardrails');
+  const [config, setConfig] = useState(null);
+  const [saved, setSaved] = useState(null);
+  const [carts, setCarts] = useState([]);
+  const [saving, setSaving] = useState(false);
+  const [working, setWorking] = useState(null);
+
+  useEffect(() => {
+    getGuardrailConfig()
+      .then(data => { setConfig(data.config); setSaved(data.config); })
+      .catch(err => showToast('error', 'Could not load settings', err.message));
+  }, [showToast]);
+
+  useEffect(() => {
+    if (tab === 'recovery') getRecoveredCarts().then(data => setCarts(data.carts)).catch(() => setCarts([]));
+  }, [tab]);
+
+  const dirty = config && saved && JSON.stringify(config) !== JSON.stringify(saved);
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const data = await updateGuardrailConfig(config);
+      setConfig(data.config);
+      setSaved(data.config);
+      showToast('success', 'Settings saved', 'Guardrails apply to the next suggestion and checkout');
+    } catch (err) {
+      showToast('error', 'Save failed', err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runAction(key, fn, successTitle) {
+    setWorking(key);
+    try {
+      const res = await fn();
+      showToast('success', successTitle, res.message);
+      return res;
+    } catch (err) {
+      showToast('error', 'Action failed', err.message);
+      return null;
+    } finally {
+      setWorking(null);
+    }
+  }
+
+  if (!config) return <div className="page"><Loading label="Loading settings…" /></div>;
+
+  const set = (key, value) => setConfig(c => ({ ...c, [key]: value }));
+  const saveBar = (
+    <div className="row" style={{ marginTop: 20 }}>
+      <button className="btn btn-primary" onClick={handleSave} disabled={saving || !dirty}>{saving ? 'Saving…' : 'Save changes'}</button>
+      {dirty && <button className="btn btn-ghost" onClick={() => setConfig(saved)}>Discard</button>}
+      {!dirty && <span className="small muted">All changes saved</span>}
+    </div>
+  );
+
+  return (
+    <div className="page fade-in">
+      <div className="page-header">
+        <div>
+          <h1>Admin</h1>
+          <p>Configure guardrails, growth features, discounts and demo data. Every change is recorded in the <Link to="/audit">audit trail</Link>.</p>
+        </div>
+        {health && (
+          <div className="row wrap">
+            <span className={`badge ${health.ai ? 'badge-success' : 'badge-neutral'}`}>AI: {health.ai ? 'connected' : 'rules engine'}</span>
+            <span className={`badge ${health.razorpay ? 'badge-success' : 'badge-neutral'}`}>Payments: {health.razorpay ? 'Razorpay test' : 'built-in test'}</span>
+          </div>
+        )}
+      </div>
+
+      <div className="tabs" role="tablist">
+        {TABS.map(t => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} className={`tab${tab === t.key ? ' active' : ''}`} onClick={() => setTab(t.key)}>{t.label}</button>
         ))}
       </div>
 
-      {/* ===== GUARDRAILS TAB ===== */}
-      {activeTab === 'guardrails' && (
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>🛡️ Guardrail Rules</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {tab === 'guardrails' && (
+        <div className="card">
+          <h2>Guardrail rules</h2>
+          <p className="small muted" style={{ marginBottom: 20 }}>Deterministic rules that run outside the AI. They bound every suggestion and gate every payment.</p>
+          <div className="stack" style={{ gap: 24 }}>
             <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Max Suggestion Price (% of cart value)
-              </label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <input type="range" min="5" max="100" value={config.maxSuggestionPricePercent} onChange={(e) => setConfig({ ...config, maxSuggestionPricePercent: Number(e.target.value) })} style={{ flex: 1, accentColor: 'var(--accent-primary)' }} />
-                <span style={{ background: 'var(--bg-primary)', border: '1px solid var(--border-primary)', padding: '6px 12px', borderRadius: 'var(--radius-sm)', fontSize: '14px', fontWeight: '600', color: 'var(--accent-primary)', minWidth: '50px', textAlign: 'center' }}>
-                  {config.maxSuggestionPricePercent}%
-                </span>
-              </div>
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>AI-suggested items must cost less than this % of the current cart total</p>
+              <label className="field-label">Max suggestion price — {config.maxSuggestionPricePercent}% of cart value</label>
+              <input type="range" min={5} max={100} value={config.maxSuggestionPricePercent} onChange={e => set('maxSuggestionPricePercent', Number(e.target.value))} style={{ width: '100%', accentColor: 'var(--accent-primary)' }} />
+              <p className="field-hint">A ₹10,000 cart can receive suggestions up to {formatINR(10000 * config.maxSuggestionPricePercent / 100)}. Anything pricier is blocked and logged.</p>
             </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                Auto-Approve Payment Threshold (₹)
-              </label>
-              <input type="number" className="input-field" value={config.maxAutoApproveAmount} onChange={(e) => setConfig({ ...config, maxAutoApproveAmount: Number(e.target.value) })} min="0" step="500" />
-              <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>Payments above this amount require explicit user confirmation (the "gate")</p>
+            <div className="grid-2">
+              <NumberField
+                label="Auto-approve payments up to (₹)" value={config.maxAutoApproveAmount} min={0} step={500}
+                onChange={v => set('maxAutoApproveAmount', v)}
+                hint="Larger payments need an explicit “Confirm & pay” step."
+              />
             </div>
-
-            <button className="btn-primary" onClick={handleSaveConfig} disabled={saving} style={{ alignSelf: 'flex-start' }}>
-              {saving ? '⏳ Saving...' : '💾 Save Guardrail Settings'}
-            </button>
           </div>
+          {saveBar}
         </div>
       )}
 
-      {/* ===== GROWTH FEATURES TAB ===== */}
-      {activeTab === 'growth' && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          {/* Feature Toggles */}
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>🚀 Feature Toggles</h2>
-            <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px' }}>
-              Enable/disable each growth feature independently for a controlled demo
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {[
-                { key: 'enableAbandonedCartRecovery', label: '⏰ Abandoned Cart Recovery', desc: 'Auto-generate recovery payment links for idle carts' },
-                { key: 'enablePaymentMethodReorder', label: '💳 Smart Payment Method Reorder', desc: 'Reorder payment methods based on customer profile' },
-                { key: 'enableEmiSuggestion', label: '📊 EMI/BNPL Suggestion', desc: 'Suggest EMI for high-value carts' },
-              ].map(feature => (
-                <div key={feature.key} style={{
-                  display: 'flex', alignItems: 'center', gap: '14px', padding: '14px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)',
-                }}>
-                  <button onClick={() => setConfig({ ...config, [feature.key]: !config[feature.key] })} style={{
-                    width: '48px', height: '26px', borderRadius: '13px', border: 'none', cursor: 'pointer', position: 'relative', transition: 'all 0.3s ease',
-                    background: config[feature.key] ? 'var(--success)' : 'var(--border-light)',
-                  }}>
-                    <div style={{
-                      width: '20px', height: '20px', borderRadius: '50%', background: 'white', position: 'absolute', top: '3px', transition: 'all 0.3s ease',
-                      left: config[feature.key] ? '25px' : '3px',
-                    }} />
-                  </button>
-                  <div>
-                    <div style={{ fontWeight: '600', fontSize: '14px' }}>{feature.label}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{feature.desc}</div>
-                  </div>
+      {tab === 'growth' && (
+        <div className="card">
+          <h2 style={{ marginBottom: 16 }}>Growth features</h2>
+          <div className="stack">
+            {FEATURES.map(f => (
+              <div key={f.key} className="row" style={{ gap: 14, padding: 14, borderRadius: 'var(--radius-md)', background: 'var(--bg-primary)', border: '1px solid var(--border-primary)' }}>
+                <button className={`switch${config[f.key] ? ' on' : ''}`} onClick={() => set(f.key, !config[f.key])} aria-pressed={config[f.key]} aria-label={f.label} />
+                <div>
+                  <div style={{ fontWeight: 600 }}>{f.label}</div>
+                  <div className="small muted">{f.desc}</div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Feature Configs */}
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>⚙️ Feature Settings</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  ⏰ Abandoned Cart Timeout (seconds)
-                </label>
-                <input type="number" className="input-field" value={config.abandonedCartTimeout} onChange={(e) => setConfig({ ...config, abandonedCartTimeout: Number(e.target.value) })} min="10" step="10" />
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>Time before cart is considered abandoned (use 60s for demo)</p>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                  📊 EMI Suggestion Threshold (₹)
-                </label>
-                <input type="number" className="input-field" value={config.emiThreshold} onChange={(e) => setConfig({ ...config, emiThreshold: Number(e.target.value) })} min="500" step="500" />
-                <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>Only suggest EMI for carts above this amount</p>
-              </div>
-            </div>
-
-            <button className="btn-primary" onClick={handleSaveConfig} disabled={saving} style={{ marginTop: '20px' }}>
-              {saving ? '⏳ Saving...' : '💾 Save Growth Settings'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ===== DISCOUNTS TAB ===== */}
-      {activeTab === 'discounts' && (
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>🎉 Product Discounts</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '500px', overflowY: 'auto' }}>
-            {products.map(product => (
-              <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                {product.image && product.image.startsWith('http') ? (
-                  <img src={product.image} alt="" style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '4px' }} />
-                ) : (
-                  <span style={{ fontSize: '24px' }}>{product.image || '📦'}</span>
-                )}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{product.name}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>₹{product.price.toLocaleString()}</div>
-                </div>
-                <input type="number" className="input-field" value={product.discount_percent} onChange={(e) => handleDiscountPercentChange(product.id, e.target.value)} min="0" max="90" style={{ width: '70px', padding: '6px 8px', fontSize: '13px', textAlign: 'center' }} />
-                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>%</span>
-                <button onClick={() => handleToggleDiscount(product.id, product.discount_active)} style={{
-                  padding: '6px 12px', borderRadius: 'var(--radius-sm)', fontSize: '12px', fontWeight: '600', border: '1px solid', cursor: 'pointer', transition: 'all 0.2s ease',
-                  ...(product.discount_active ? { background: 'var(--success-bg)', borderColor: 'rgba(46, 204, 113, 0.3)', color: 'var(--success)' } : { background: 'transparent', borderColor: 'var(--border-primary)', color: 'var(--text-muted)' }),
-                }}>
-                  {product.discount_active ? '● Active' : '○ Inactive'}
-                </button>
               </div>
             ))}
           </div>
+          <div className="grid-2" style={{ marginTop: 24 }}>
+            <NumberField label="Cart idle time before recovery" suffix="seconds" value={config.abandonedCartTimeout} min={10} step={10} onChange={v => set('abandonedCartTimeout', v)} hint="60 seconds works well for a live demo." />
+            <NumberField label="EMI threshold (₹)" value={config.emiThreshold} min={500} step={500} onChange={v => set('emiThreshold', v)} hint="EMI is only offered for carts at or above this amount." />
+          </div>
+          {saveBar}
         </div>
       )}
 
-      {/* ===== RECOVERED CARTS TAB ===== */}
-      {activeTab === 'recovered' && (
-        <div className="glass-card" style={{ padding: '24px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>📬 Recovered Cart Links</h2>
-          {recoveredCarts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>
-              <span style={{ fontSize: '40px', display: 'block', marginBottom: '12px' }}>📭</span>
-              <p>No abandoned carts recovered yet</p>
-              <p style={{ fontSize: '13px', marginTop: '4px' }}>Add items to cart and wait 60 seconds without checking out</p>
-            </div>
+      {tab === 'discounts' && (
+        <div className="card" style={{ padding: 0 }}>
+          <div style={{ padding: '18px 16px 12px' }}>
+            <h2>Product discounts</h2>
+            <p className="small muted">Edit the percentage, then toggle the discount on. Prices update across the store immediately.</p>
+          </div>
+          <div style={{ maxHeight: 560, overflowY: 'auto' }}>
+            {products.map(p => <DiscountRow key={p.id} product={p} onSaved={reloadProducts} />)}
+          </div>
+        </div>
+      )}
+
+      {tab === 'recovery' && (
+        <div className="card">
+          <h2 style={{ marginBottom: 14 }}>Abandoned cart recovery links</h2>
+          {carts.length === 0 ? (
+            <p className="muted">No recovery links yet. Leave a cart idle for {config.abandonedCartTimeout} seconds to create one.</p>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {recoveredCarts.map(cart => (
-                <div key={cart.id} style={{ padding: '14px', background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-primary)' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                    <span style={{ fontWeight: '600', fontSize: '14px' }}>₹{cart.cartTotal?.toLocaleString()}</span>
-                    <span className={`badge ${cart.status === 'paid' ? 'badge-success' : cart.status === 'expired' ? 'badge-error' : 'badge-warning'}`}>
-                      {cart.status}
-                    </span>
+            <div className="stack">
+              {carts.map(c => (
+                <div key={c.id} className="card card-tight" style={{ background: 'var(--bg-primary)' }}>
+                  <div className="row-between wrap">
+                    <strong>{c.customerName || c.customerId} · {formatINR(c.cartTotal)}</strong>
+                    <span className={`badge ${CART_STATUS[c.status] || 'badge-neutral'}`}>{c.status}</span>
                   </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '6px' }}>
-                    {new Date(cart.timestamp).toLocaleString()} • Customer: {cart.customerId}
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                    Items: {cart.cartItems?.map(i => i.name).join(', ')}
-                  </div>
-                  <div style={{ fontSize: '12px', marginTop: '6px' }}>
-                    <a href={cart.recoveryLink} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--accent-primary)' }}>
-                      🔗 {cart.recoveryLink}
-                    </a>
-                  </div>
+                  <p className="small muted" style={{ marginTop: 4 }}>
+                    {formatDateTime(c.timestamp)} · {c.cartItems.map(i => `${i.quantity}× ${i.name}`).join(', ')}
+                  </p>
+                  {c.status === 'pending' && <a className="small mono" href={c.recoveryLink}>{c.recoveryLink}</a>}
                 </div>
               ))}
             </div>
@@ -271,17 +244,42 @@ function Admin() {
         </div>
       )}
 
-      {/* Info Box */}
-      <div style={{ marginTop: '32px', padding: '20px', background: 'var(--info-bg)', border: '1px solid rgba(52, 152, 219, 0.2)', borderRadius: 'var(--radius-lg)' }}>
-        <h3 style={{ fontSize: '15px', fontWeight: '600', color: 'var(--info)', marginBottom: '8px' }}>ℹ️ How Everything Works</h3>
-        <ul style={{ fontSize: '13px', color: 'var(--text-secondary)', lineHeight: '2', paddingLeft: '20px' }}>
-          <li><strong>Guardrails:</strong> Deterministic rules that bound AI suggestions and gate payments</li>
-          <li><strong>Abandoned Cart:</strong> Recovery links generated after cart idle timeout — 1 per session max</li>
-          <li><strong>Payment Reorder:</strong> Methods reordered by age/preference — all methods stay available (never hidden)</li>
-          <li><strong>EMI Suggestion:</strong> Only shown above threshold — prevents suggesting debt on small purchases</li>
-          <li><strong>All actions</strong> are logged in the <a href="/audit">Audit Trail</a> with reasoning</li>
-        </ul>
-      </div>
+      {tab === 'data' && (
+        <div className="grid-2">
+          <div className="card">
+            <h2>Catalog</h2>
+            <p className="small muted" style={{ margin: '6px 0 16px' }}>{products.length} products. Import real products from the DummyJSON API, or restore the curated catalog.</p>
+            <div className="row wrap">
+              <button className="btn btn-primary" disabled={!!working} onClick={async () => { if (await runAction('sync', () => syncDummyJson(30), 'Catalog synced')) reloadProducts(); }}>
+                {working === 'sync' ? 'Importing…' : 'Import from DummyJSON'}
+              </button>
+              <button className="btn btn-secondary" disabled={!!working} onClick={async () => { if (await runAction('catalog', resetCatalog, 'Catalog restored')) reloadProducts(); }}>
+                {working === 'catalog' ? 'Restoring…' : 'Restore default catalog'}
+              </button>
+            </div>
+          </div>
+          <div className="card">
+            <h2>Demo data</h2>
+            <p className="small muted" style={{ margin: '6px 0 16px' }}>Reset products, stock, customers, orders, EMIs, recovery links and settings to their original state. The audit trail is kept.</p>
+            <button
+              className="btn btn-danger" disabled={!!working}
+              onClick={async () => {
+                if (!window.confirm('Reset all demo data? Orders and settings will be lost.')) return;
+                if (await runAction('reset', resetDemoData, 'Demo data reset')) {
+                  clearCart();
+                  reloadProducts();
+                  reloadCustomers();
+                  const data = await getGuardrailConfig();
+                  setConfig(data.config);
+                  setSaved(data.config);
+                }
+              }}
+            >
+              {working === 'reset' ? 'Resetting…' : 'Reset all demo data'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

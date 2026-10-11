@@ -1,146 +1,60 @@
+import { useState } from 'react';
+import { formatDateTime, formatINR } from '../utils/format';
+import { ACTION_LABELS } from '../utils/auditLabels';
+
+const STATUS_BADGE = {
+  success: 'badge-success',
+  failed: 'badge-error',
+  blocked: 'badge-warning',
+  info: 'badge-info',
+};
+
 function AuditTable({ logs }) {
-  if (!logs || logs.length === 0) {
+  const [expanded, setExpanded] = useState(null);
+
+  if (logs.length === 0) {
     return (
-      <div style={{
-        textAlign: 'center',
-        padding: '60px 20px',
-        color: 'var(--text-muted)',
-      }}>
-        <span style={{ fontSize: '48px', display: 'block', marginBottom: '16px' }}>📋</span>
-        <p style={{ fontSize: '16px', fontWeight: '500' }}>No audit entries yet</p>
-        <p style={{ fontSize: '13px', marginTop: '8px' }}>Actions will appear here as you interact with the app</p>
+      <div className="empty-state">
+        <div className="empty-state-icon" aria-hidden="true">📋</div>
+        <h2>No entries</h2>
+        <p>Actions appear here as you shop, pay and change settings.</p>
       </div>
     );
   }
 
-  const statusConfig = {
-    success: { badge: 'badge-success', icon: '✅' },
-    failed: { badge: 'badge-error', icon: '❌' },
-    blocked: { badge: 'badge-warning', icon: '🚫' },
-    info: { badge: 'badge-info', icon: 'ℹ️' },
-  };
-
-  const actionLabels = {
-    suggestion_generated: '🧠 Suggestion Generated',
-    suggestion_blocked: '🚫 Suggestion Blocked',
-    suggestion_accepted: '✅ Suggestion Accepted',
-    suggestion_dismissed: '👋 Suggestion Dismissed',
-    suggestion_failed: '❌ Suggestion Failed',
-    suggestion_error: '⚠️ Suggestion Error',
-    search_logged: '🔍 Search Logged',
-    discount_applied: '🎉 Discount Applied',
-    order_created: '📦 Order Created',
-    order_failed: '❌ Order Failed',
-    payment_success: '💳 Payment Success',
-    payment_failed: '💳 Payment Failed',
-    payment_failure_simulated: '🧪 Failure Simulated',
-    payment_error: '⚠️ Payment Error',
-    simulation_error: '⚠️ Simulation Error',
-    cart_recovery: '⏰ Cart Recovery Link',
-    payment_method_reorder: '💳 Method Reordered',
-    emi_suggestion: '📊 EMI Suggested',
-    assistant_query: '🤖 AI Assistant Query',
-    agent_payment_link: '📱 Agent Payment Link Dispatched',
-    emi_inquiry: '📊 Pending EMI Checked',
-    emi_installment_paid: '✅ EMI Installment Paid',
-    emi_pin_failed: '🔒 EMI Security PIN Rejected',
-  };
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{
-        width: '100%',
-        borderCollapse: 'separate',
-        borderSpacing: '0 4px',
-      }}>
+    <div className="table-wrap">
+      <table className="table">
         <thead>
           <tr>
-            {['Timestamp', 'Action', 'Reasoning', 'Amount', 'Customer', 'Status'].map(header => (
-              <th key={header} style={{
-                textAlign: 'left',
-                padding: '12px 16px',
-                fontSize: '11px',
-                fontWeight: '600',
-                color: 'var(--text-muted)',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                borderBottom: '1px solid var(--border-primary)',
-              }}>
-                {header}
-              </th>
-            ))}
+            <th>Time</th>
+            <th>Event</th>
+            <th>Reasoning</th>
+            <th>Amount</th>
+            <th>Customer</th>
+            <th>Status</th>
           </tr>
         </thead>
         <tbody>
-          {logs.map((log, index) => {
-            const config = statusConfig[log.status] || statusConfig.info;
+          {logs.map(log => {
+            const isOpen = expanded === log.id;
+            const hasDetails = log.details && Object.keys(log.details).length > 0;
             return (
               <tr
                 key={log.id}
-                className="stagger-item"
-                style={{
-                  background: index % 2 === 0 ? 'var(--bg-secondary)' : 'transparent',
-                  transition: 'background 0.2s ease',
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-tertiary)'}
-                onMouseLeave={(e) => e.currentTarget.style.background = index % 2 === 0 ? 'var(--bg-secondary)' : 'transparent'}
+                className={`clickable${isOpen ? ' expanded' : ''}`}
+                onClick={() => setExpanded(isOpen ? null : log.id)}
+                aria-expanded={isOpen}
               >
-                <td style={{
-                  padding: '12px 16px',
-                  fontSize: '12px',
-                  color: 'var(--text-muted)',
-                  whiteSpace: 'nowrap',
-                  borderRadius: 'var(--radius-sm) 0 0 var(--radius-sm)',
-                }}>
-                  {new Date(log.timestamp).toLocaleString('en-IN', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                  })}
-                </td>
-                <td style={{
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                }}>
-                  {actionLabels[log.action] || log.action}
-                </td>
-                <td style={{
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  color: 'var(--text-secondary)',
-                  maxWidth: '300px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
+                <td className="small muted nowrap">{formatDateTime(log.timestamp)}</td>
+                <td className="nowrap" style={{ fontWeight: 550 }}>{ACTION_LABELS[log.action] || log.action}</td>
+                <td className={`cell-reason${isOpen ? '' : ' clamped'}`}>
                   {log.reasoning || '—'}
+                  {isOpen && hasDetails && <pre className="details-pre mono">{JSON.stringify(log.details, null, 2)}</pre>}
                 </td>
-                <td style={{
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: 'var(--accent-primary)',
-                }}>
-                  {log.amount ? `₹${Number(log.amount).toLocaleString()}` : '—'}
-                </td>
-                <td style={{
-                  padding: '12px 16px',
-                  fontSize: '13px',
-                  color: 'var(--text-secondary)',
-                }}>
-                  {log.customer || '—'}
-                </td>
-                <td style={{
-                  padding: '12px 16px',
-                  borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
-                }}>
-                  <span className={`badge ${config.badge}`}>
-                    {config.icon} {log.status}
-                  </span>
-                </td>
+                <td className="nowrap accent" style={{ fontWeight: 600 }}>{log.amount ? formatINR(log.amount) : '—'}</td>
+                <td className="secondary nowrap">{log.customer || '—'}</td>
+                <td><span className={`badge ${STATUS_BADGE[log.status] || 'badge-info'}`}>{log.status}</span></td>
               </tr>
             );
           })}

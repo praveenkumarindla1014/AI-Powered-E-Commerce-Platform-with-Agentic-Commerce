@@ -1,102 +1,79 @@
 const crypto = require('crypto');
 
 let razorpayInstance = null;
-const MOCK_MODE = !process.env.RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID === 'your_test_key_id_here';
+
+function isMockMode() {
+  const keyId = process.env.RAZORPAY_KEY_ID;
+  return !keyId || keyId === 'your_test_key_id_here' || !process.env.RAZORPAY_KEY_SECRET;
+}
 
 function getInstance() {
-  if (MOCK_MODE) return null;
+  if (isMockMode()) return null;
 
   if (!razorpayInstance) {
     const Razorpay = require('razorpay');
     razorpayInstance = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID,
-      key_secret: process.env.RAZORPAY_KEY_SECRET
+      key_secret: process.env.RAZORPAY_KEY_SECRET,
     });
   }
   return razorpayInstance;
 }
 
 /**
- * Create a Razorpay order (or mock order)
+ * Create a Razorpay order, or a local mock order when no keys are configured.
  * @param {number} amount - Amount in ₹
  * @param {string} receipt - Receipt ID
- * @returns {object} Order object
+ * @param {boolean} forceMock - always create a mock order (failure simulation, PIN pay)
  */
-async function createOrder(amount, receipt = 'order_receipt_1') {
-  if (MOCK_MODE) {
-    // Generate a realistic-looking mock order
-    const orderId = 'order_mock_' + crypto.randomBytes(8).toString('hex');
+async function createOrder(amount, receipt, forceMock = false) {
+  if (forceMock || isMockMode()) {
     return {
-      id: orderId,
+      id: 'order_mock_' + crypto.randomBytes(8).toString('hex'),
       amount: Math.round(amount * 100), // paise
       currency: 'INR',
       receipt,
       status: 'created',
-      created_at: Date.now(),
+      created_at: Math.floor(Date.now() / 1000),
       mock: true,
     };
   }
 
-  const instance = getInstance();
-  const options = {
+  const order = await getInstance().orders.create({
     amount: Math.round(amount * 100),
     currency: 'INR',
     receipt,
-    notes: {
-      source: 'ShopMind AI',
-      type: 'test_order'
-    }
-  };
-
-  return await instance.orders.create(options);
+    notes: { source: 'ShopMind AI' },
+  });
+  return { ...order, mock: false };
 }
 
 /**
- * Verify payment signature (or mock verification)
- * @param {string} orderId
- * @param {string} paymentId
- * @param {string} signature
- * @returns {{ valid: boolean, reason: string }}
+ * Verify a payment signature.
+ * Mock signatures are accepted ONLY for mock orders — a live order always
+ * requires a genuine Razorpay HMAC signature.
  */
-function verifyPayment(orderId, paymentId, signature) {
-  // Check if this is a direct mobile pay, simulated order, or mock payment
-  const isDirectOrMock =
-    MOCK_MODE ||
-    orderId.startsWith('order_mock_') ||
-    orderId.startsWith('order_direct_') ||
-    orderId.startsWith('order_agent_') ||
-    signature === 'mock_valid_signature' ||
-    signature === 'mock_invalid_signature';
-
-  if (isDirectOrMock) {
+function verifyPayment({ orderId, paymentId, signature, mock }) {
+  if (mock) {
     if (signature === 'mock_valid_signature') {
-      return { valid: true, reason: 'Payment verified successfully (Direct/Mock mode)' };
-    } else if (signature === 'mock_invalid_signature') {
-      return { valid: false, reason: 'Payment signature mismatch — possible tampering detected (simulated failure)' };
+      return { valid: true, reason: 'Payment verified (test mode)' };
     }
-    // Default verification for direct/mock
-    return { valid: true, reason: 'Payment verified successfully (Direct/Mock mode)' };
+    return { valid: false, reason: 'Payment was declined by the bank (test mode)' };
   }
 
-  // Real Razorpay verification
-  try {
-    const expectedSignature = crypto
-      .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-      .update(`${orderId}|${paymentId}`)
-      .digest('hex');
+  if (!signature) return { valid: false, reason: 'Missing payment signature' };
 
-    if (expectedSignature === signature) {
-      return { valid: true, reason: 'Signature verified successfully' };
-    } else {
-      return { valid: false, reason: 'Payment signature mismatch — possible tampering detected' };
-    }
-  } catch (error) {
-    return { valid: false, reason: `Verification error: ${error.message}` };
-  }
-}
+  const expected = crypto
+    .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+    .update(`${orderId}|${paymentId}`)
+    .digest('hex');
 
-function isMockMode() {
-  return MOCK_MODE;
+  const valid = expected.length === signature.length &&
+    crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+
+  return valid
+    ? { valid: true, reason: 'Signature verified successfully' }
+    : { valid: false, reason: 'Payment signature mismatch — possible tampering detected' };
 }
 
 module.exports = { createOrder, verifyPayment, getInstance, isMockMode };

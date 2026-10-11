@@ -15,7 +15,8 @@
       "RGB",
       "mechanical keyboard",
       "gaming headset"
-    ]
+    ],
+    "security_pin": "1234"
   },
   {
     "id": "cust_002",
@@ -33,7 +34,8 @@
       "desk organizer",
       "monitor stand",
       "WFH setup"
-    ]
+    ],
+    "security_pin": "1234"
   },
   {
     "id": "cust_003",
@@ -48,16 +50,11 @@
       "Herbal Wellness Tea Set"
     ],
     "last_searches": [
-      "watch",
-      "watch",
-      "watch",
-      "watch",
-      "watch",
-      "watch",
       "walking shoes",
       "comfort insoles",
       "health monitor"
-    ]
+    ],
+    "security_pin": "1234"
   },
   {
     "id": "cust_004",
@@ -75,6 +72,7 @@
       "trendy fashion",
       "hoodie",
       "wireless earbuds"
-    ]
+    ],
+    "security_pin": "1234"
   }
 ]

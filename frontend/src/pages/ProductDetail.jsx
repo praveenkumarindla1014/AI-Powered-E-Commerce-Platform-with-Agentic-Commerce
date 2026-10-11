@@ -1,254 +1,169 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { getProducts } from '../api';
-import { useApp } from '../App';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useApp } from '../context/appContext';
+import ProductCard from '../components/ProductCard';
+import { EmptyState, Loading, ProductImage, QtyStepper, Rating } from '../components/ui';
+import { formatINR, hasDiscount, unitPrice } from '../utils/format';
+import { categoryStyle } from '../utils/categories';
 
 function ProductDetail() {
   const { id } = useParams();
-  const { addToCart } = useApp();
-  const [product, setProduct] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [quantity, setQuantity] = useState(1);
+  const navigate = useNavigate();
+  const { products, productsLoading, addToCart, cart, wishlist, toggleWishlist, markViewed } = useApp();
 
+  // Quantity is remembered per product, so it resets when navigating to another one
+  const [selection, setSelection] = useState({ id, quantity: 1 });
+  const quantity = selection.id === id ? selection.quantity : 1;
+  const setQuantity = q => setSelection({ id, quantity: q });
+
+  const product = products.find(p => p.id === id);
+
+  // Record the visit for "Recently viewed" and the assistant's context
   useEffect(() => {
-    loadProduct();
-  }, [id]);
+    if (product) markViewed(product.id);
+  }, [product, markViewed]);
 
-  async function loadProduct() {
-    try {
-      const data = await getProducts();
-      const found = data.products.find(p => p.id === id);
-      setProduct(found);
-    } catch (err) {
-      console.error('Failed to load product:', err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="page-container" style={{ textAlign: 'center', padding: '80px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '16px' }}>⏳</div>
-        <p style={{ color: 'var(--text-muted)' }}>Loading product...</p>
-      </div>
-    );
-  }
+  if (productsLoading) return <div className="page"><Loading label="Loading product…" /></div>;
 
   if (!product) {
     return (
-      <div className="page-container" style={{ textAlign: 'center', padding: '80px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '16px' }}>😕</div>
-        <p style={{ color: 'var(--text-muted)' }}>Product not found</p>
-        <Link to="/" className="btn-primary" style={{ marginTop: '16px', display: 'inline-flex' }}>
-          ← Back to Catalog
-        </Link>
+      <div className="page">
+        <EmptyState icon="🔎" title="Product not found" action={<Link to="/" className="btn btn-blue">Back to the store</Link>}>
+          It may have been removed from the catalog.
+        </EmptyState>
       </div>
     );
   }
 
-  const discountedPrice = product.discount_active
-    ? product.price * (1 - product.discount_percent / 100)
-    : product.price;
+  const price = unitPrice(product);
+  const discounted = hasDiscount(product);
+  const inCart = cart.find(l => l.id === product.id)?.quantity || 0;
+  const available = Math.max(0, product.stock - inCart);
+  const qty = Math.min(quantity, Math.max(1, available));
+  const saved = wishlist.includes(product.id);
+  const related = products.filter(p => p.category === product.category && p.id !== product.id && p.stock > 0).slice(0, 8);
+  const category = categoryStyle(product.category);
+
+  function handleAdd() {
+    addToCart(product.id, qty);
+    setQuantity(1);
+  }
+
+  function handleBuyNow() {
+    if (available > 0) addToCart(product.id, qty, { silent: true });
+    navigate('/cart');
+  }
 
   return (
-    <div className="page-container animate-fade-in">
-      {/* Breadcrumb */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        marginBottom: '24px',
-        fontSize: '13px',
-        color: 'var(--text-muted)',
-      }}>
-        <Link to="/" style={{ color: 'var(--text-muted)' }}>Catalog</Link>
+    <div className="page fade-in">
+      <nav className="small muted row" style={{ marginBottom: 14 }} aria-label="Breadcrumb">
+        <Link to="/" className="muted">Home</Link>
         <span>›</span>
-        <span style={{ color: 'var(--text-secondary)', textTransform: 'capitalize' }}>{product.category}</span>
+        <Link to={`/?category=${product.category}`} className="muted">{category.label}</Link>
         <span>›</span>
-        <span style={{ color: 'var(--text-primary)' }}>{product.name}</span>
-      </div>
+        <span className="secondary">{product.name}</span>
+      </nav>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
-        gap: '48px',
-        alignItems: 'start',
-      }}>
-        {/* Product Image */}
-        <div className="glass-card" style={{
-          height: '400px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '120px',
-          background: 'linear-gradient(135deg, var(--bg-tertiary), var(--bg-secondary))',
-          position: 'relative',
-          overflow: 'hidden',
-        }}>
-          {product.image && product.image.startsWith('http') ? (
-            <img
-              src={product.image}
-              alt={product.name}
-              style={{ width: '100%', height: '100%', objectFit: 'contain', padding: '16px' }}
-            />
-          ) : (
-            product.image || '📦'
-          )}
-          {product.discount_active && (
-            <div style={{
-              position: 'absolute',
-              top: '20px',
-              right: '20px',
-              background: 'linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))',
-              color: '#0F0D0B',
-              padding: '8px 16px',
-              borderRadius: '999px',
-              fontSize: '16px',
-              fontWeight: '700',
-            }}>
-              {product.discount_percent}% OFF
-            </div>
-          )}
-        </div>
-
-        {/* Product Info */}
-        <div>
-          <span className="badge badge-accent" style={{ marginBottom: '12px', textTransform: 'capitalize' }}>
-            {product.category}
-          </span>
-
-          <h1 style={{
-            fontSize: '28px',
-            fontWeight: '700',
-            marginTop: '12px',
-            marginBottom: '8px',
-            letterSpacing: '-0.5px',
-          }}>
-            {product.name}
-          </h1>
-
-          <p style={{
-            fontSize: '15px',
-            color: 'var(--text-secondary)',
-            lineHeight: '1.7',
-            marginBottom: '24px',
-          }}>
-            {product.description}
-          </p>
-
-          {/* Price */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'baseline',
-            gap: '12px',
-            marginBottom: '24px',
-          }}>
-            <span style={{
-              fontSize: '32px',
-              fontWeight: '800',
-              color: 'var(--accent-primary)',
-            }}>
-              ₹{Math.round(discountedPrice).toLocaleString()}
-            </span>
-            {product.discount_active && (
-              <>
-                <span style={{
-                  fontSize: '18px',
-                  color: 'var(--text-muted)',
-                  textDecoration: 'line-through',
-                }}>
-                  ₹{product.price.toLocaleString()}
-                </span>
-                <span className="badge badge-success">
-                  Save ₹{Math.round(product.price - discountedPrice).toLocaleString()}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Stock */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            marginBottom: '24px',
-          }}>
-            <span style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '50%',
-              background: product.stock > 10 ? 'var(--success)' : product.stock > 0 ? 'var(--warning)' : 'var(--error)',
-            }} />
-            <span style={{
-              fontSize: '14px',
-              color: product.stock > 10 ? 'var(--success)' : product.stock > 0 ? 'var(--warning)' : 'var(--error)',
-              fontWeight: '500',
-            }}>
-              {product.stock > 10 ? 'In Stock' : product.stock > 0 ? `Only ${product.stock} left` : 'Out of Stock'}
-            </span>
-          </div>
-
-          {/* Tags */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '24px' }}>
-            {product.tags.map(tag => (
-              <span key={tag} style={{
-                padding: '4px 10px',
-                borderRadius: '999px',
-                fontSize: '11px',
-                background: 'var(--bg-tertiary)',
-                color: 'var(--text-muted)',
-                border: '1px solid var(--border-primary)',
-              }}>
-                #{tag}
-              </span>
-            ))}
-          </div>
-
-          {/* Quantity + Add to Cart */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '16px',
-            padding: '20px',
-            background: 'var(--bg-secondary)',
-            borderRadius: 'var(--radius-lg)',
-            border: '1px solid var(--border-primary)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                className="btn-secondary"
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                style={{ padding: '6px 12px', minWidth: '36px', justifyContent: 'center' }}
-              >−</button>
-              <span style={{
-                width: '40px',
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: '600',
-              }}>
-                {quantity}
-              </span>
-              <button
-                className="btn-secondary"
-                onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                style={{ padding: '6px 12px', minWidth: '36px', justifyContent: 'center' }}
-              >+</button>
-            </div>
-
+      <div className="card detail-layout" style={{ padding: 24 }}>
+        {/* Left: image and primary actions */}
+        <div className="stack" style={{ position: 'sticky', top: 'calc(var(--nav-height) + 16px)' }}>
+          <div style={{ position: 'relative', height: 420, borderRadius: 'var(--radius-lg)', background: 'linear-gradient(160deg, #F7F9FC, #E9EEF6)', border: '1px solid var(--border-primary)' }}>
+            <ProductImage image={product.image} name={product.name} size={170} />
+            {discounted && <span className="ribbon" style={{ top: 16, fontSize: 13 }}>{product.discount_percent}% OFF</span>}
             <button
-              className="btn-primary"
-              onClick={() => {
-                for (let i = 0; i < quantity; i++) addToCart(product);
-              }}
-              style={{ flex: 1, justifyContent: 'center', padding: '12px 24px' }}
-              disabled={product.stock <= 0}
+              className={`wishlist-btn${saved ? ' on' : ''}`}
+              style={{ top: 14, right: 14, width: 40, height: 40, fontSize: 20 }}
+              onClick={() => toggleWishlist(product.id)}
+              aria-label={saved ? 'Remove from wishlist' : 'Save to wishlist'}
+              aria-pressed={saved}
             >
-              🛒 Add {quantity > 1 ? `${quantity} Items` : ''} to Cart — ₹{Math.round(discountedPrice * quantity).toLocaleString()}
+              {saved ? '♥' : '♡'}
+            </button>
+          </div>
+          <div className="row">
+            <button className="btn btn-lg grow" style={{ background: '#FF9F00', color: 'white' }} disabled={available <= 0} onClick={handleAdd}>
+              🛒 {product.stock <= 0 ? 'OUT OF STOCK' : available <= 0 ? 'ALL IN CART' : 'ADD TO CART'}
+            </button>
+            <button className="btn btn-lg grow" style={{ background: '#FB641B', color: 'white' }} disabled={product.stock <= 0} onClick={handleBuyNow}>
+              ⚡ BUY NOW
             </button>
           </div>
         </div>
+
+        {/* Right: details */}
+        <div className="stack" style={{ gap: 16 }}>
+          <div>
+            {product.brand && <div className="product-brand" style={{ fontSize: 13, color: 'var(--text-muted)' }}>{product.brand}</div>}
+            <h1 style={{ marginTop: 4, fontWeight: 600, fontSize: 24 }}>{product.name}</h1>
+            {product.rating && (
+              <div style={{ marginTop: 8 }}>
+                <Rating value={product.rating} count={product.rating_count} />
+                {product.rating_count && <span className="small muted"> ratings & reviews</span>}
+              </div>
+            )}
+          </div>
+
+          <div>
+            {discounted && <div className="small success-text">Special price</div>}
+            <div className="price-row">
+              <span className="price-lg">{formatINR(price)}</span>
+              {discounted && (
+                <>
+                  <span className="strike" style={{ fontSize: 17 }}>{formatINR(product.price)}</span>
+                  <span className="off" style={{ fontSize: 16 }}>{product.discount_percent}% off</span>
+                </>
+              )}
+            </div>
+            <span className="small muted">Inclusive of all taxes · Free delivery</span>
+          </div>
+
+          <div className="card card-tight" style={{ boxShadow: 'none' }}>
+            <h3 style={{ marginBottom: 10 }}>Available offers</h3>
+            <ul className="offer-list">
+              {discounted && <li><span className="offer-tag">🏷️ Deal</span><span>{product.discount_percent}% off — you save {formatINR(product.price - price)} on this item</span></li>}
+              {price >= 3000 && <li><span className="offer-tag">💳 EMI</span><span>No-cost EMI from {formatINR(Math.ceil(price / 3))}/month for 3 months</span></li>}
+              <li><span className="offer-tag">⚡ UPI</span><span>One-tap UPI checkout with your saved mandate and security PIN</span></li>
+              <li><span className="offer-tag">🚚 Free</span><span>Free delivery on every order</span></li>
+            </ul>
+          </div>
+
+          <div className="row wrap" style={{ gap: 18 }}>
+            <span className="row" style={{ color: product.stock > 10 ? 'var(--success)' : product.stock > 0 ? 'var(--warning)' : 'var(--error)', fontWeight: 700 }}>
+              ● {product.stock > 10 ? 'In stock' : product.stock > 0 ? `Hurry, only ${product.stock} left` : 'Out of stock'}
+            </span>
+            {inCart > 0 && <Link to="/cart" className="small">{inCart} in your cart →</Link>}
+          </div>
+
+          {available > 0 && (
+            <div className="row">
+              <span className="small secondary" style={{ fontWeight: 700 }}>Quantity</span>
+              <QtyStepper value={qty} max={Math.max(1, available)} onChange={setQuantity} />
+            </div>
+          )}
+
+          <div>
+            <h3 style={{ marginBottom: 6 }}>Product details</h3>
+            <p className="secondary" style={{ lineHeight: 1.7 }}>{product.description}</p>
+          </div>
+
+          {product.tags?.length > 0 && (
+            <div className="row wrap">
+              {product.tags.map(tag => <span key={tag} className="badge badge-neutral">#{tag}</span>)}
+            </div>
+          )}
+
+          <p className="small muted">🔒 Payments are verified on our server, and orders above the auto-approve limit always need your confirmation.</p>
+        </div>
       </div>
+
+      {related.length > 0 && (
+        <section className="shelf section">
+          <div className="shelf-title"><h2>Similar products</h2></div>
+          <div className="shelf-row">
+            {related.map(p => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

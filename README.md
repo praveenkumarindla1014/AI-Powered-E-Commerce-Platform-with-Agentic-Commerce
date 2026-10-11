@@ -1,81 +1,104 @@
-# ShopMind AI 🧠
+# ShopMind AI
 
-> AI-powered e-commerce demo with intelligent cross-sell suggestions, explainable reasoning, and Razorpay payments — built for the Razorpay "AI Growth & Agentic Commerce" hackathon.
+> An AI-assisted storefront where every recommendation explains itself, every money action is bounded and gated, and every decision lands in a live audit trail. Built for the Razorpay "AI Growth & Agentic Commerce" hackathon.
 
-## Problem Statement
+## Problem
 
-AI agents are about to start shopping, negotiating, and paying on behalf of humans. The race is on: Razorpay's ACP, Visa's AP2, Coinbase's x402, NPCI's UAP — every major payments player is building agent-native protocols. But merchants aren't ready. Most storefronts still treat every buyer as a human clicking buttons. ShopMind AI is a prototype that shows how a merchant can serve both human and AI buyers — with every suggestion explainable, every money action bounded and gated, and every decision logged in a live audit trail.
-
-## Tech Stack
-
-- **Frontend:** React (Vite) + Tailwind CSS
-- **Backend:** Node.js + Express
-- **AI Engine:** OpenAI API (gpt-4o-mini) for personalized cross-sell suggestions
-- **Payments:** Razorpay Test Mode (Orders API, Payments API, Checkout.js)
-- **Data Store:** JSON file store (products, customers, audit logs)
-- **Notifications:** In-app toast notification system
+AI agents are about to start shopping, negotiating and paying on behalf of people — Razorpay's ACP, Visa's AP2, Coinbase's x402 and NPCI's UAP are all building agent-native payment protocols. Most storefronts aren't ready: they treat every buyer as a human clicking buttons, and they have no way to show *why* an automated decision was made. ShopMind is a prototype of a merchant that can serve both human and AI buyers safely.
 
 ## Features
 
-- 🛍️ **Product Catalog** — 16 products across electronics, fashion, health, home & gaming
-- 🤖 **AI Suggestion Engine** — Personalized cross-sell powered by OpenAI with visible reasoning
-- 🛡️ **Guardrails** — Price-based limits, stock checks, payment gates (configurable via admin)
-- 💳 **Razorpay Payments** — Full test-mode payment flow with order creation and verification
-- 🧪 **Failure Simulation** — Deliberate payment failure demo with graceful error handling
-- 📋 **Audit Trail** — Every suggestion, block, payment, and failure logged and viewable
-- 👤 **Customer Personas** — 4 test profiles with different ages and purchase histories
-- 🎉 **Discount System** — Active discounts with notification toasts and catalog banners
-- 🧠 **Interactive AI Shopping Assistant** — Floating chat widget ("Ask AI Assistant / Ask Doubt") delivering age-bracket recommendations, past purchase price range matching, active offer checks, and in-chat Add to Cart
-- ⏰ **Abandoned Cart Recovery** — Automatic Razorpay payment link generation for idle carts with admin recovery tracking
-- 🎯 **Smart Payment Method Recommender** — Personalized payment method ranking based on customer demographic profile
-- 📊 **EMI/BNPL Suggestion Agent** — Automated threshold-bounded 3-month installment suggestions on eligible cart values
+| Area | What it does |
+| --- | --- |
+| **Catalog** | 18 curated products across electronics, gaming, fashion, health and home; optional import from the DummyJSON API |
+| **Explainable cross-sell** | One suggestion per cart with plain-language reasoning and a confidence score. Uses your AI provider, or a deterministic rules engine when none is configured |
+| **Guardrails** | Suggested items must cost ≤ a configurable % of the cart, be in stock and not already in the cart. Blocked proposals are shown and logged, and the best item that *does* fit is offered instead |
+| **Payment gate** | Payments above a threshold (default ₹2,000) are refused by the server until the shopper explicitly confirms |
+| **Checkout** | Razorpay Orders API + Checkout.js with server-side HMAC verification, or a built-in test checkout when no keys are set. Totals are always recomputed on the server |
+| **One-tap UPI** | Pay with a saved UPI mandate, approved by a security PIN that is verified on the server (5 wrong attempts → 10-minute lock) |
+| **Failure simulation** | A test card that is always declined — shows a friendly "no charge was made" message and logs the failure |
+| **Orders** | Order history per customer; paying reduces stock and updates the customer's purchase history, which feeds future suggestions |
+| **AI assistant** | Chat widget that understands budgets ("under 2k"), offers, product questions, "what's in my cart", EMI dues and paying for the cart |
+| **Assistant memory** | The conversation is saved per customer on the server and restored after refreshes, persona switches and restarts. The assistant remembers facts you state (budget, interests, who you shop for), uses them in later answers, and knows which product you're viewing ("is this good for beginners?"). The 🧠 Memory panel shows every fact, and each one can be deleted — or everything cleared |
+| **Retail UI** | Bright storefront inspired by Flipkart, Amazon, Myntra and Meesho: gradient header with search, category bar, banner carousel, category tiles, deal shelves, rating badges, wishlist, recently viewed, Flipkart-style product page |
+| **Abandoned-cart recovery** | After a configurable idle time the cart is saved and a 24-hour recovery link is created; opening it restores the cart |
+| **Payment-method ordering** | The customer's most likely method is shown first (never hiding any method) |
+| **EMI** | No-cost EMI offered only above a threshold; existing EMI plans show due/overdue installments and can be paid in order with the PIN |
+| **Audit trail** | Every suggestion, block, gate, payment, failure, PIN rejection and admin change — searchable, filterable, with full details |
+| **Admin** | Guardrail and feature settings (persisted), discounts, recovery links, catalog import, one-click demo reset |
 
-## Setup Instructions
+## Tech stack
+
+- **Frontend:** React 19, React Router 7, Vite 8 (hand-written CSS design system)
+- **Backend:** Node.js 18+ and Express 4
+- **AI:** any OpenAI-compatible chat completions API (OpenAI, DeepSeek, AgentRouter…), optional
+- **Payments:** Razorpay test mode (Orders API, Checkout.js, signature verification), optional
+- **Storage:** JSON files, seeded from `backend/data/seed/`
+
+## Getting started
 
 ```bash
-# 1. Clone the repo
-git clone <your-repo-url>
-cd e_commerce
+# 1. Install
+cd backend && npm install
+cd ../frontend && npm install
 
-# 2. Install backend dependencies
-cd backend
-npm install
+# 2. (Optional) configure integrations
+cp ../.env.example ../backend/.env   # then edit backend/.env
 
-# 3. Install frontend dependencies
-cd ../frontend
-npm install
-
-# 4. Configure environment variables
-# Create backend/.env with:
-OPENAI_API_KEY=your_openai_key_here
-RAZORPAY_KEY_ID=your_razorpay_test_key_here
-RAZORPAY_KEY_SECRET=your_razorpay_test_secret_here
-PORT=5000
-
-# 5. Start the backend (from backend/ directory)
-npm run dev
-
-# 6. Start the frontend (from frontend/ directory, in a new terminal)
-npm run dev
-
-# 7. Visit http://localhost:3000
+# 3. Run — two terminals
+cd backend && npm run dev            # http://localhost:5000
+cd frontend && npm run dev           # http://localhost:3000
 ```
 
-## How This Meets The Bar
+Everything works without any keys: suggestions and the assistant fall back to the rules engine, and checkout uses the built-in test checkout. The footer shows which mode is active.
 
-1. **Explainable:** Every AI suggestion includes a one-line reasoning in plain language, a confidence score (0-1), and is displayed in the Suggestion Panel alongside the recommended product. Users see *why* the AI picked that item.
+**Test accounts:** pick a persona in the navbar (Arjun 22, Priya 35, Ramesh 52, Sneha 28). Every persona's security PIN is `1234`.
 
-2. **Bounded:** The guardrails module enforces deterministic rules: suggested item price ≤ configurable % of cart value, items must be in stock, and age-based category preferences guide the AI. These rules run *outside* the LLM — they're pure functions in `guardrails.js`.
+### Environment variables (`backend/.env`)
 
-3. **Gated:** Payments above a configurable threshold (default ₹2,000) require an explicit "Confirm & Pay" step. The payment gate is visible in the cart before checkout proceeds.
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` | API key for the AI provider (omit to use the rules engine) |
+| `OPENAI_BASE_URL` | Provider base URL, default `https://api.openai.com/v1` |
+| `AI_MODEL` | Model name, default `gpt-4o-mini` |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay **test** keys (omit to use the built-in test checkout) |
+| `PORT` | Backend port, default `5000` |
+| `FRONTEND_URL` | Used in recovery links and CORS, default `http://localhost:3000` |
 
-4. **Audit Trail:** The `/audit` page shows a complete, timestamped log of every: suggestion generated, suggestion blocked by guardrail, suggestion accepted/dismissed, discount applied, order created, payment succeeded, and payment failed — with reasoning and amounts.
+### Data
 
-5. **Graceful Failure:** The "Simulate Payment Failure" button triggers a controlled failure scenario. The app shows a friendly error message ("Payment couldn't be completed — no charge was made"), logs the failure with reason in the audit trail, and does NOT crash.
+Runtime data lives in `backend/data/*.json` (git-ignored) and is created from `backend/data/seed/` on first start. Use **Admin → Catalog & data → Reset all demo data** to start fresh.
 
-## Team
+### Tests
 
-- [Your Name / Team Name here]
+```bash
+cd backend && npm test      # API tests against a throwaway copy of the seed data
+cd backend && npm run test:ai   # checks that your AI provider answers
+cd frontend && npm run lint && npm run build
+```
+
+## How this meets the bar
+
+1. **Explainable** — every suggestion carries a one-sentence reason and a confidence score, shown in the cart ("Why this?"). The assistant explains why each item fits.
+2. **Bounded** — `backend/services/guardrails.js` holds pure, deterministic rules that run *outside* the LLM: price cap as a % of cart value, stock, no duplicates. The AI is only a proposer; the guardrail decides. When a proposal is blocked, the shopper sees which item was blocked and why.
+3. **Gated** — the server refuses to create an order above the auto-approve threshold until the shopper confirms; saved-UPI and assistant payments require a PIN verified on the server. Nothing in the browser can bypass either check.
+4. **Audit trail** — `/audit` shows a timestamped, searchable record of every suggestion (generated, blocked, accepted, dismissed), gate, order, payment success or failure, PIN rejection, EMI payment, recovery link and setting change, each with its reasoning and details.
+5. **Graceful failure** — "Simulate" on the cart page runs a payment that the bank declines. The shopper sees "Payment couldn't be completed — no charge was made", the cart stays intact, the order is marked failed, and the failure is logged. AI or gateway outages fall back to the rules engine or a clear error instead of crashing.
+
+## Project structure
+
+```
+backend/
+  server.js               # Express app, routes, error handling
+  routes/                 # products, customers, suggest, assistant, payments, orders, growth, audit, admin
+  services/               # guardrails, pricing, recommender, openaiService, razorpayService, orders, emi, store, auditLogger
+  data/seed/              # committed seed data
+  tests/                  # node:test API tests
+frontend/src/
+  context/                # app state: customers, catalog, cart, toasts
+  components/             # Navbar, ProductCard, SuggestionPanel, PaymentModal, AIAssistant, ...
+  pages/                  # Home, ProductDetail, Cart, Orders, Wishlist, Audit, Admin, Recover
+```
 
 ## License
 

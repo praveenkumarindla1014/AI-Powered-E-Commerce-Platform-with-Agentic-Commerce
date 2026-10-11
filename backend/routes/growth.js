@@ -1,314 +1,219 @@
 const express = require('express');
-const router = express.Router();
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
+const router = express.Router();
+const store = require('../services/store');
 const { checkAbandonedCartRecovery, getPaymentMethodOrder, checkEmiEligibility } = require('../services/guardrails');
+const { priceCart } = require('../services/pricing');
+const { verifyPin } = require('../services/profile');
+const { customerEmis, payInstallment } = require('../services/emi');
 const { logAudit } = require('../services/auditLogger');
 
-const ABANDONED_FILE = path.join(__dirname, '..', 'data', 'abandoned_carts.json');
-const CUSTOMERS_FILE = path.join(__dirname, '..', 'data', 'customers.json');
+const RECOVERY_LINK_TTL_MS = 24 * 60 * 60 * 1000;
+const RECOVERY_COOLDOWN_MS = 5 * 60 * 1000;
+const formatINR = n => `₹${Math.round(n).toLocaleString('en-IN')}`;
 
-function readAbandoned() {
-  try {
-    return JSON.parse(fs.readFileSync(ABANDONED_FILE, 'utf-8'));
-  } catch { return []; }
+function frontendUrl() {
+  return (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 }
 
-function writeAbandoned(data) {
-  fs.writeFileSync(ABANDONED_FILE, JSON.stringify(data, null, 2));
-}
-
-function readCustomers() {
-  return JSON.parse(fs.readFileSync(CUSTOMERS_FILE, 'utf-8'));
+/** Pending links past their expiry are reported as expired. */
+function withExpiry(cart) {
+  if (cart.status === 'pending' && new Date(cart.expiresAt).getTime() < Date.now()) {
+    return { ...cart, status: 'expired' };
+  }
+  return cart;
 }
 
 // =============================================
 // FEATURE 1: Abandoned Cart Recovery
 // =============================================
 
-// POST /api/cart/abandon — Generate recovery link for abandoned cart
-router.post('/cart/abandon', (req, res) => {
-  try {
-    const { customerId, cartItems, cartTotal } = req.body;
-    const config = checkAbandonedCartRecovery();
-
-    if (!config.enabled) {
-      return res.json({ success: false, reason: 'Abandoned cart recovery is disabled' });
-    }
-
-    if (!cartItems || cartItems.length === 0) {
-      return res.status(400).json({ success: false, error: 'Cart is empty' });
-    }
-
-    // Check if we already generated a link for this session (guardrail: 1 per session)
-    const existing = readAbandoned();
-    const alreadyGenerated = existing.find(
-      a => a.customerId === customerId && a.status === 'pending' &&
-        (Date.now() - new Date(a.timestamp).getTime()) < 300000 // within 5 min
-    );
-
-    if (alreadyGenerated) {
-      return res.json({
-        success: true,
-        alreadyExists: true,
-        recoveryLink: alreadyGenerated.recoveryLink,
-        message: 'Recovery link already generated for this cart session'
-      });
-    }
-
-    // Generate a mock "payment link" (Razorpay Payment Links API simulation)
-    const linkId = 'plink_mock_' + crypto.randomBytes(6).toString('hex');
-    const recoveryLink = `https://rzp.io/demo/${linkId}`;
-
-    const record = {
-      id: linkId,
-      customerId,
-      cartItems,
-      cartTotal,
-      recoveryLink,
-      timestamp: new Date().toISOString(),
-      status: 'pending', // pending | paid | expired
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    };
-
-    existing.unshift(record);
-    writeAbandoned(existing);
-
-    logAudit('cart_recovery', {
-      status: 'success',
-      customer: customerId,
-      amount: cartTotal,
-      reasoning: `Abandoned cart detected (${cartItems.length} items, ₹${cartTotal}). Recovery payment link generated: ${recoveryLink}`,
-      details: {
-        linkId,
-        recoveryLink,
-        cartItems,
-        timeout: config.timeout
-      }
-    });
-
-    res.json({
-      success: true,
-      recoveryLink,
-      linkId,
-      message: `Recovery link generated! Cart of ₹${cartTotal} saved.`
-    });
-  } catch (error) {
-    logAudit('cart_recovery', {
-      status: 'failed',
-      reasoning: `Recovery link generation failed: ${error.message}`,
-      customer: req.body.customerId
-    });
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/cart/recovered — List all recovered carts (admin)
-router.get('/cart/recovered', (req, res) => {
-  try {
-    const carts = readAbandoned();
-    res.json({ success: true, carts, total: carts.length });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// GET /api/cart/abandon-config — Get abandoned cart timer config
+// GET /api/cart/abandon-config — Is recovery enabled, and after how many idle seconds?
 router.get('/cart/abandon-config', (req, res) => {
+  res.json({ success: true, ...checkAbandonedCartRecovery() });
+});
+
+// POST /api/cart/abandon — Save an idle cart and create a recovery link
+router.post('/cart/abandon', (req, res) => {
+  const { customerId, cartItems } = req.body;
   const config = checkAbandonedCartRecovery();
-  res.json({ success: true, ...config });
+  if (!config.enabled) return res.json({ success: false, reason: 'Abandoned cart recovery is disabled' });
+
+  if (!Array.isArray(cartItems) || cartItems.length === 0) {
+    return res.status(400).json({ success: false, error: 'Cart is empty' });
+  }
+
+  const customer = store.read('customers').find(c => c.id === customerId);
+  if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
+
+  const pricing = priceCart(cartItems, store.read('products'));
+  if (pricing.lines.length === 0) return res.status(409).json({ success: false, error: 'Cart items are unavailable' });
+
+  // Guardrail: at most one recovery link per customer every 5 minutes
+  const carts = store.read('abandoned_carts');
+  const recent = carts.find(c => c.customerId === customerId && c.status === 'pending' &&
+    Date.now() - new Date(c.timestamp).getTime() < RECOVERY_COOLDOWN_MS);
+  if (recent) {
+    return res.json({ success: true, alreadyExists: true, linkId: recent.id, recoveryLink: recent.recoveryLink, cartTotal: recent.cartTotal });
+  }
+
+  const linkId = 'rcv_' + crypto.randomBytes(6).toString('hex');
+  const record = {
+    id: linkId,
+    customerId,
+    customerName: customer.name,
+    cartItems: pricing.lines.map(l => ({ id: l.id, name: l.name, quantity: l.quantity, unitPrice: l.unitPrice })),
+    cartTotal: pricing.total,
+    recoveryLink: `${frontendUrl()}/recover/${linkId}`,
+    timestamp: new Date().toISOString(),
+    expiresAt: new Date(Date.now() + RECOVERY_LINK_TTL_MS).toISOString(),
+    status: 'pending', // pending | recovered | closed | expired
+  };
+
+  carts.unshift(record);
+  store.write('abandoned_carts', carts);
+
+  logAudit('cart_recovery', {
+    status: 'success',
+    customer: customer.name,
+    amount: pricing.total,
+    reasoning: `Cart idle for ${config.timeout}s (${pricing.lines.length} item${pricing.lines.length === 1 ? '' : 's'}, ${formatINR(pricing.total)}). Recovery link created, valid for 24 hours.`,
+    details: { linkId, recoveryLink: record.recoveryLink },
+  });
+
+  res.json({ success: true, linkId, recoveryLink: record.recoveryLink, cartTotal: pricing.total });
+});
+
+// GET /api/cart/recover/:linkId — Open a recovery link (restores the saved cart)
+router.get('/cart/recover/:linkId', (req, res) => {
+  const cart = store.read('abandoned_carts').find(c => c.id === req.params.linkId);
+  if (!cart) return res.status(404).json({ success: false, error: 'This recovery link does not exist' });
+
+  const current = withExpiry(cart);
+  if (current.status !== 'pending') {
+    const messages = {
+      expired: 'This recovery link has expired',
+      recovered: 'This cart has already been paid for',
+      closed: 'This cart was already checked out',
+    };
+    return res.status(410).json({ success: false, error: messages[current.status] || 'Link is no longer valid', status: current.status });
+  }
+
+  logAudit('cart_recovery_opened', {
+    status: 'info',
+    customer: cart.customerName,
+    amount: cart.cartTotal,
+    reasoning: `Recovery link ${cart.id} opened — saved cart restored`,
+  });
+
+  res.json({ success: true, cart: current });
+});
+
+// GET /api/cart/recovered — All recovery links (admin)
+router.get('/cart/recovered', (req, res) => {
+  const carts = store.read('abandoned_carts').map(withExpiry);
+  res.json({ success: true, carts, total: carts.length });
 });
 
 // =============================================
 // FEATURE 2: Smart Payment Method Recommender
 // =============================================
 
-// POST /api/payment-method-suggest — Get reordered payment methods
+// POST /api/payment-method-suggest — Payment methods ordered for this customer
 router.post('/payment-method-suggest', (req, res) => {
-  try {
-    const { customerId } = req.body;
-    const customers = readCustomers();
-    const customer = customers.find(c => c.id === customerId);
+  const customer = store.read('customers').find(c => c.id === req.body.customerId);
+  if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
 
-    if (!customer) {
-      return res.status(404).json({ success: false, error: 'Customer not found' });
-    }
+  const result = getPaymentMethodOrder(customer);
 
-    const result = getPaymentMethodOrder(customer);
-
+  if (result.reordered && req.body.log !== false) {
     logAudit('payment_method_reorder', {
-      status: 'success',
+      status: 'info',
       customer: customer.name,
-      reasoning: `Payment methods reordered for ${customer.name} (age ${customer.age}): ${result.methods.join(' → ')}. Reason: ${result.reason}`,
-      details: {
-        methods: result.methods,
-        reason: result.reason,
-        age: customer.age,
-        preferred: customer.preferred_method || null
-      }
+      reasoning: `Checkout methods ordered ${result.methods.join(' → ')}. ${result.reason}`,
+      details: { methods: result.methods, age: customer.age, preferred: customer.preferred_method || null },
     });
-
-    res.json({
-      success: true,
-      methods: result.methods,
-      reason: result.reason,
-      reordered: result.reordered,
-      explainability: `We've put ${result.methods[0]} first since that's usually fastest for you`
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
   }
+
+  res.json({
+    success: true,
+    methods: result.methods,
+    reason: result.reason,
+    reordered: result.reordered,
+    explainability: result.reordered ? `${result.methods[0]} is shown first — ${result.reason.split('— ')[1] || 'it is usually fastest for you'}` : null,
+  });
 });
 
 // =============================================
 // FEATURE 3: EMI/BNPL Suggestion
 // =============================================
 
-// POST /api/emi-suggest — Check EMI eligibility for cart
+// POST /api/emi-suggest — EMI eligibility for a cart total
 router.post('/emi-suggest', (req, res) => {
-  try {
-    const { cartTotal, customerId } = req.body;
-
-    if (!cartTotal) {
-      return res.status(400).json({ success: false, error: 'cartTotal is required' });
-    }
-
-    const result = checkEmiEligibility(cartTotal);
-
-    if (result.eligible) {
-      logAudit('emi_suggestion', {
-        status: 'success',
-        customer: customerId,
-        amount: cartTotal,
-        reasoning: `EMI suggested for cart ₹${cartTotal}: ${result.message}. ${result.reason}`,
-        details: {
-          emiAmount: result.emiAmount,
-          months: result.months,
-          threshold: result.emiThreshold
-        }
-      });
-    }
-
-    res.json({ success: true, ...result });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+  const cartTotal = Number(req.body.cartTotal);
+  if (!Number.isFinite(cartTotal) || cartTotal <= 0) {
+    return res.status(400).json({ success: false, error: 'A positive cartTotal is required' });
   }
+
+  const result = checkEmiEligibility(cartTotal);
+  if (result.eligible) {
+    logAudit('emi_suggestion', {
+      status: 'info',
+      customer: req.body.customerId,
+      amount: cartTotal,
+      reasoning: `${result.message}. ${result.reason}`,
+      details: { emiAmount: result.emiAmount, months: result.months, threshold: result.threshold },
+    });
+  }
+
+  res.json({ success: true, ...result });
 });
 
 // =============================================
-// FEATURE: Pending EMI Management & Secure Payment
+// FEATURE 4: Pending EMI installments
 // =============================================
-const EMI_FILE = path.join(__dirname, '..', 'data', 'emi_records.json');
 
-function readEmiRecords() {
-  try {
-    return JSON.parse(fs.readFileSync(EMI_FILE, 'utf-8'));
-  } catch { return []; }
-}
-
-function writeEmiRecords(data) {
-  fs.writeFileSync(EMI_FILE, JSON.stringify(data, null, 2));
-}
-
-// GET /api/emi/pending/:customerId — Get pending EMIs for customer
+// GET /api/emi/pending/:customerId — EMI plans with due/overdue status
 router.get('/emi/pending/:customerId', (req, res) => {
-  try {
-    const { customerId } = req.params;
-    const records = readEmiRecords();
-    const customerEmis = records.filter(r => r.customerId === customerId);
-
-    const pendingSummary = customerEmis.map(emi => {
-      const pendingInstallments = emi.installments.filter(i => i.status === 'pending');
-      const paidInstallments = emi.installments.filter(i => i.status === 'paid');
-      const nextDue = pendingInstallments[0] || null;
-
-      return {
-        id: emi.id,
-        productName: emi.productName,
-        totalAmount: emi.totalAmount,
-        totalInstallments: emi.totalInstallments,
-        phone: emi.phone,
-        hasPending: pendingInstallments.length > 0,
-        nextDue,
-        paidCount: paidInstallments.length,
-        installments: emi.installments
-      };
-    });
-
-    res.json({
-      success: true,
-      emis: pendingSummary,
-      totalPending: pendingSummary.filter(e => e.hasPending).length
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  const emis = customerEmis(req.params.customerId);
+  res.json({ success: true, emis, totalPending: emis.filter(e => e.nextDue).length });
 });
 
-// POST /api/emi/pay-installment — Pay specific EMI with password/PIN security verification
+// POST /api/emi/pay-installment — Pay the next installment, approved with the security PIN
 router.post('/emi/pay-installment', (req, res) => {
-  try {
-    const { customerId, emiId, installmentNumber, securityPin } = req.body;
-    const records = readEmiRecords();
-    const emi = records.find(r => r.id === emiId && r.customerId === customerId);
+  const { customerId, emiId, installmentNumber, securityPin } = req.body;
 
-    if (!emi) {
-      return res.status(404).json({ success: false, error: 'EMI record not found for this customer' });
-    }
+  const customer = store.read('customers').find(c => c.id === customerId);
+  if (!customer) return res.status(404).json({ success: false, error: 'Customer not found' });
 
-    // Security Verification: Password / PIN check
-    if (securityPin !== emi.securityPin && securityPin !== '1234') {
-      logAudit('emi_pin_failed', {
-        status: 'failed',
-        customer: emi.customerName,
-        reasoning: `EMI payment security verification failed: Incorrect PIN entered for ${emi.phone}. Transaction blocked.`,
-        details: { emiId, installmentNumber, phone: emi.phone }
-      });
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid Security Password / PIN! Transaction blocked for security.'
-      });
-    }
-
-    const installment = emi.installments.find(i => i.installmentNumber === Number(installmentNumber));
-    if (!installment) {
-      return res.status(404).json({ success: false, error: `Installment #${installmentNumber} not found` });
-    }
-
-    if (installment.status === 'paid') {
-      return res.json({ success: true, message: `Installment #${installmentNumber} is already paid!` });
-    }
-
-    // Update status to paid
-    installment.status = 'paid';
-    installment.paidAt = new Date().toISOString();
-    writeEmiRecords(records);
-
-    // Cryptographic log to live audit trail
-    logAudit('emi_installment_paid', {
-      status: 'success',
-      customer: emi.customerName,
-      amount: installment.amount,
-      reasoning: `Pending EMI installment #${installmentNumber} (₹${installment.amount}) paid successfully for "${emi.productName}". Verified via mobile (${emi.phone}) and security PIN.`,
-      details: {
-        emiId,
-        productName: emi.productName,
-        installmentNumber,
-        phone: emi.phone,
-        securityVerified: true
-      }
+  const pinCheck = verifyPin(customer, securityPin);
+  if (!pinCheck.ok) {
+    logAudit('emi_pin_failed', {
+      status: 'blocked',
+      customer: customer.name,
+      reasoning: `Wrong security PIN for EMI ${emiId} installment #${installmentNumber} — payment blocked`,
+      details: { emiId, installmentNumber },
     });
-
-    res.json({
-      success: true,
-      message: `Installment #${installmentNumber} (₹${installment.amount}) paid successfully via Razorpay Bank Mandate!`,
-      installment,
-      phone: emi.phone
-    });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    return res.status(401).json({ success: false, error: pinCheck.reason });
   }
+
+  const result = payInstallment(customerId, emiId, installmentNumber);
+  if (!result.ok) return res.status(result.status).json({ success: false, error: result.error });
+
+  logAudit('emi_installment_paid', {
+    status: 'success',
+    customer: customer.name,
+    amount: result.installment.amount,
+    reasoning: `EMI installment #${installmentNumber} (${formatINR(result.installment.amount)}) for "${result.record.productName}" paid via UPI mandate, approved with security PIN`,
+    details: { emiId, installmentNumber, remaining: result.record.outstanding },
+  });
+
+  res.json({
+    success: true,
+    message: `Installment #${installmentNumber} paid`,
+    installment: result.installment,
+    plan: result.record,
+  });
 });
 
 module.exports = router;

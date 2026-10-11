@@ -1,42 +1,50 @@
-const fs = require('fs');
-const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const store = require('./store');
 
-const AUDIT_FILE = path.join(__dirname, '..', 'data', 'audit_logs.json');
+const MAX_ENTRIES = 1000;
 
 function readAuditLogs() {
-  try {
-    const data = fs.readFileSync(AUDIT_FILE, 'utf-8');
-    return JSON.parse(data);
-  } catch {
-    return [];
-  }
+  return store.read('audit_logs');
 }
 
-function writeAuditLogs(logs) {
-  fs.writeFileSync(AUDIT_FILE, JSON.stringify(logs, null, 2));
+function clearAuditLogs() {
+  store.write('audit_logs', []);
+}
+
+/** Audit entries show customer names; accept either an id or a name. */
+function resolveCustomerName(customer) {
+  if (!customer) return null;
+  if (typeof customer === 'object') return customer.name || customer.id || null;
+  if (String(customer).startsWith('cust_')) {
+    const found = store.read('customers').find(c => c.id === customer);
+    if (found) return found.name;
+  }
+  return customer;
 }
 
 /**
  * Log an audit entry
  * @param {string} action - e.g. "suggestion_generated", "suggestion_blocked", "payment_success"
- * @param {object} details - arbitrary detail object
+ * @param {object} details - { status, customer, amount, reasoning, details }
  */
 function logAudit(action, details = {}) {
-  const logs = readAuditLogs();
+  const { status = 'info', customer = null, amount = null, reasoning = null, details: extra = {} } = details;
+
   const entry = {
     id: uuidv4(),
     timestamp: new Date().toISOString(),
     action,
-    reasoning: details.reasoning || null,
-    amount: details.amount || null,
-    status: details.status || 'info',
-    customer: details.customer || null,
-    details: details
+    reasoning,
+    amount: amount ?? null,
+    status,
+    customer: resolveCustomerName(customer),
+    details: extra,
   };
+
+  const logs = readAuditLogs();
   logs.unshift(entry); // newest first
-  writeAuditLogs(logs);
+  store.write('audit_logs', logs.slice(0, MAX_ENTRIES));
   return entry;
 }
 
-module.exports = { readAuditLogs, logAudit };
+module.exports = { readAuditLogs, clearAuditLogs, logAudit };

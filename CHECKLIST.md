@@ -1,12 +1,14 @@
 # Pre-Submission Checklist — ShopMind AI
 
-- [ ] App runs locally with no errors (fresh clone + npm install + .env test)
+- [ ] App runs locally with no errors (fresh clone + npm install, with and without backend/.env)
+- [ ] `npm test` passes in backend/, `npm run lint && npm run build` pass in frontend/
 - [ ] Real Razorpay test-mode payment completes successfully at least once
 - [ ] AI suggestion returns valid, sensible JSON and displays correctly in UI
 - [ ] At least one guardrail-blocked suggestion has been triggered and logged
 - [ ] Failure simulation triggers and shows graceful error message
-- [ ] /audit page shows all of: suggestion, block, accept, discount, success, failure
+- [ ] /audit page shows all of: suggestion, block, accept, gate, discount, success, failure
 - [ ] README complete with setup steps, screenshots, and "How This Meets The Bar" section
+- [ ] Demo data reset (Admin → Catalog & data) before recording
 - [ ] .env.example included, real .env NOT committed to git
 - [ ] Demo video recorded (2-4 min) following DEMO_SCRIPT.md
 - [ ] Repo is public (or shared with correct access) before deadline

@@ -1,126 +1,107 @@
-import { Link, useLocation } from 'react-router-dom';
-import { useApp } from '../App';
+import { useState } from 'react';
+import { Link, NavLink, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useApp } from '../context/appContext';
+import { logSearch } from '../api';
+import { categoryStyle, FEATURED_CATEGORIES } from '../utils/categories';
 
-function Navbar() {
-  const { customers, selectedCustomer, setSelectedCustomer, cart } = useApp();
-  const location = useLocation();
+function SearchBar() {
+  const { customer, reloadCustomers } = useApp();
+  const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const [term, setTerm] = useState(params.get('q') || '');
 
-  const navLinks = [
-    { path: '/', label: 'Catalog', icon: '🏪' },
-    { path: '/cart', label: 'Cart', icon: '🛒' },
-    { path: '/audit', label: 'Audit Trail', icon: '📋' },
-    { path: '/admin', label: 'Admin', icon: '⚙️' },
-  ];
+  async function handleSubmit(e) {
+    e.preventDefault();
+    const q = term.trim();
+    navigate(q ? `/?q=${encodeURIComponent(q)}` : '/');
+    if (q && customer) {
+      // Searches feed future recommendations; logging is best-effort
+      logSearch(customer.id, q).then(reloadCustomers).catch(() => {});
+    }
+  }
 
   return (
-    <nav style={{
-      background: 'var(--bg-secondary)',
-      borderBottom: '1px solid var(--border-primary)',
-      position: 'sticky',
-      top: 0,
-      zIndex: 100,
-      backdropFilter: 'blur(20px)',
-    }}>
-      <div style={{
-        maxWidth: '1280px',
-        margin: '0 auto',
-        padding: '0 32px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: '64px',
-      }}>
-        {/* Logo */}
-        <Link to="/" style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '10px',
-          textDecoration: 'none',
-        }}>
-          <span style={{ fontSize: '24px' }}>🧠</span>
-          <span style={{
-            fontSize: '20px',
-            fontWeight: '700',
-            letterSpacing: '-0.5px',
-          }}>
-            <span className="accent-text-gradient">Shop</span>
-            <span style={{ color: 'var(--text-primary)' }}>Mind</span>
-          </span>
-          <span className="badge badge-accent" style={{ fontSize: '10px' }}>AI</span>
-        </Link>
+    <form className="header-search" onSubmit={handleSubmit} role="search">
+      <input
+        type="search"
+        placeholder="Search for products, brands and more"
+        value={term}
+        onChange={e => setTerm(e.target.value)}
+        aria-label="Search products"
+      />
+      <button type="submit" aria-label="Search">⌕</button>
+    </form>
+  );
+}
 
-        {/* Nav Links */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          {navLinks.map(link => (
-            <Link
-              key={link.path}
-              to={link.path}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '8px 16px',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '14px',
-                fontWeight: '500',
-                color: location.pathname === link.path ? 'var(--accent-primary)' : 'var(--text-secondary)',
-                background: location.pathname === link.path ? 'var(--accent-glow)' : 'transparent',
-                textDecoration: 'none',
-                transition: 'all 0.2s ease',
-                position: 'relative',
-              }}
+function Navbar() {
+  const { customers, customer, selectCustomer, cartCount, wishlist } = useApp();
+  const location = useLocation();
+  const [params] = useSearchParams();
+  const activeCategory = location.pathname === '/' ? params.get('category') : null;
+
+  return (
+    <header className="navbar">
+      <div className="navbar-top">
+        <div className="navbar-inner">
+          <Link to="/" className="brand" aria-label="ShopMind home">
+            <span className="brand-mark">S</span>
+            <span className="brand-text">
+              <span className="brand-name">ShopMind</span>
+              <span className="brand-tag">Explore <b>AI Plus ✦</b></span>
+            </span>
+          </Link>
+
+          {/* Re-mount on navigation so the box reflects the current ?q= */}
+          <SearchBar key={location.search} />
+
+          <div className="nav-right">
+            <select
+              className="persona-select"
+              value={customer?.id || ''}
+              onChange={e => selectCustomer(e.target.value)}
+              disabled={customers.length === 0}
+              aria-label="Shopping as"
             >
-              <span>{link.icon}</span>
-              <span>{link.label}</span>
-              {link.path === '/cart' && cart.length > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '2px',
-                  right: '2px',
-                  background: 'var(--accent-primary)',
-                  color: '#0F0D0B',
-                  fontSize: '10px',
-                  fontWeight: '700',
-                  width: '18px',
-                  height: '18px',
-                  borderRadius: '50%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  {cart.reduce((sum, item) => sum + item.quantity, 0)}
-                </span>
-              )}
+              {customers.map(c => (
+                <option key={c.id} value={c.id}>{c.avatar} {c.name}, {c.age}</option>
+              ))}
+            </select>
+            <Link to="/orders" className="header-link" aria-label="Orders">
+              <span className="icon" aria-hidden="true">📦</span><span className="label">Orders</span>
             </Link>
-          ))}
-        </div>
-
-        {/* Customer Selector */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>Persona:</span>
-          <select
-            value={selectedCustomer?.id || ''}
-            onChange={(e) => {
-              const c = customers.find(c => c.id === e.target.value);
-              setSelectedCustomer(c);
-            }}
-            className="input-field"
-            style={{
-              width: 'auto',
-              padding: '6px 12px',
-              fontSize: '13px',
-              cursor: 'pointer',
-            }}
-          >
-            {customers.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.avatar} {c.name} (Age {c.age})
-              </option>
-            ))}
-          </select>
+            <Link to="/wishlist" className="header-link" aria-label={`Wishlist, ${wishlist.length} items`}>
+              <span className="icon" aria-hidden="true">♡</span><span className="label">Wishlist</span>
+              {wishlist.length > 0 && <span className="count-bubble">{wishlist.length}</span>}
+            </Link>
+            <Link to="/cart" className="header-link" aria-label={`Cart, ${cartCount} items`}>
+              <span className="icon" aria-hidden="true">🛒</span><span className="label">Cart</span>
+              {cartCount > 0 && <span className="count-bubble">{cartCount}</span>}
+            </Link>
+          </div>
         </div>
       </div>
-    </nav>
+
+      <nav className="navbar-sub" aria-label="Categories">
+        <div className="navbar-sub-inner">
+          <NavLink to="/" end className={() => `sub-link${location.pathname === '/' && !activeCategory && !params.get('q') && !params.get('deals') ? ' active' : ''}`}>
+            Home
+          </NavLink>
+          {FEATURED_CATEGORIES.map(cat => {
+            const style = categoryStyle(cat);
+            return (
+              <Link key={cat} to={`/?category=${cat}`} className={`sub-link${activeCategory === cat ? ' active' : ''}`}>
+                <span aria-hidden="true">{style.icon}</span>{style.label}
+              </Link>
+            );
+          })}
+          <Link to="/?deals=1" className={`sub-link deals${params.get('deals') ? ' active' : ''}`}>🏷️ Top Deals</Link>
+          <span className="sub-spacer" />
+          <NavLink to="/audit" className={({ isActive }) => `sub-link tool${isActive ? ' active' : ''}`}>Audit Trail</NavLink>
+          <NavLink to="/admin" className={({ isActive }) => `sub-link tool${isActive ? ' active' : ''}`}>Seller Admin</NavLink>
+        </div>
+      </nav>
+    </header>
   );
 }
 

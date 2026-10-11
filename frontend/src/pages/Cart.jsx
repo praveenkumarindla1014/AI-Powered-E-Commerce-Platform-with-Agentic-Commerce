@@ -1,708 +1,412 @@
-import { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
-import { useApp } from '../App';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useApp } from '../context/appContext';
 import SuggestionPanel from '../components/SuggestionPanel';
+import PaymentModal from '../components/PaymentModal';
+import { EmptyState, Loading, PinForm, ProductImage, QtyStepper } from '../components/ui';
 import {
   getSuggestion, acceptSuggestion, dismissSuggestion,
-  createOrder, verifyPayment, simulateFailure,
-  triggerAbandonedCart, getAbandonConfig,
-  getPaymentMethodSuggestion, getEmiSuggestion,
+  createOrder, verifyPayment, reportPaymentFailure, pinPay, simulateFailure,
+  getAbandonConfig, triggerAbandonedCart, getPaymentMethodSuggestion, getEmiSuggestion,
 } from '../api';
+import { formatINR, hasDiscount } from '../utils/format';
+import { loadRazorpay } from '../utils/razorpay';
+
+/** Small isolated component so the per-second tick doesn't re-render the whole cart. */
+function IdleCountdown({ deadline }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  const seconds = Math.max(0, Math.ceil((deadline - now) / 1000));
+  if (seconds === 0) return null;
+  return <p className="small muted">If you step away, we'll save this cart for you in {seconds}s.</p>;
+}
 
 function Cart() {
   const {
-    cart, removeFromCart, updateCartQuantity, clearCart,
-    cartTotal, selectedCustomer, addToCart, showToast,
+    customer, cart, cartCount, cartSubtotal, cartDiscount, cartTotal, productsLoading,
+    addToCart, setQuantity, removeFromCart, clearCart, reloadProducts, reloadCustomers,
+    recoveryLinkId, showToast,
   } = useApp();
+  const navigate = useNavigate();
 
-  const [suggestion, setSuggestion] = useState(null);
-  const [suggestionProduct, setSuggestionProduct] = useState(null);
+  const [suggestion, setSuggestion] = useState(null); // { suggestion, product, blocked }
   const [suggestionLoading, setSuggestionLoading] = useState(false);
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentGate, setPaymentGate] = useState(null);
-  const [showConfirmation, setShowConfirmation] = useState(false);
-  const [blocked, setBlocked] = useState(null);
-  const [mockModal, setMockModal] = useState(null);
-  const [mockStep, setMockStep] = useState('card');
+  const [dismissedIds, setDismissedIds] = useState([]);
+  const [methods, setMethods] = useState(null);
+  const [emi, setEmi] = useState(null);
+  const [gateState, setGate] = useState(null); // { threshold, total, cartKey }
+  const [checkout, setCheckout] = useState(null); // { order, failing }
+  const [busy, setBusy] = useState(null); // 'checkout' | 'simulate' | 'pin'
+  const [abandonConfig, setAbandonConfig] = useState(null);
+  const [idleDeadline, setIdleDeadline] = useState(null);
+  const [recovery, setRecovery] = useState(null);
 
-  // Growth feature states
-  const [abandonBanner, setAbandonBanner] = useState(null);
-  const [abandonTimer, setAbandonTimer] = useState(0);
-  const [paymentMethods, setPaymentMethods] = useState(null);
-  const [emiSuggestion, setEmiSuggestion] = useState(null);
-  const [directPin, setDirectPin] = useState('1234');
-  const [directPayLoading, setDirectPayLoading] = useState(false);
-  const abandonTimerRef = useRef(null);
-  const countdownRef = useRef(null);
+  const cartKey = cart.map(l => `${l.id}:${l.quantity}`).join(',');
+  // Latest cart for async callbacks (timers, debounced requests)
+  const cartRef = useRef(cart);
+  useLayoutEffect(() => { cartRef.current = cart; }, [cart]);
 
-  // ========== FETCH AI SUGGESTION ==========
+  // A payment-gate confirmation only applies to the exact cart it was shown for
+  const gate = gateState?.cartKey === cartKey ? gateState : null;
+
+  // ---------- AI cross-sell suggestion ----------
   useEffect(() => {
-    if (cart.length > 0 && selectedCustomer) {
-      fetchSuggestion();
-      fetchPaymentMethods();
-      fetchEmiSuggestion();
-      startAbandonTimer();
-    } else {
+    if (!customer || cartRef.current.length === 0) {
       setSuggestion(null);
-      setSuggestionProduct(null);
-      clearAbandonTimer();
+      return undefined;
     }
-    return () => clearAbandonTimer();
-  }, [cart.length, selectedCustomer?.id]);
-
-  // Refresh EMI when cart total changes
-  useEffect(() => {
-    if (cart.length > 0) fetchEmiSuggestion();
-  }, [cartTotal]);
-
-  async function fetchSuggestion() {
-    if (!selectedCustomer || cart.length === 0) return;
+    let cancelled = false;
     setSuggestionLoading(true);
-    setSuggestion(null);
-    setSuggestionProduct(null);
-    setBlocked(null);
-    try {
-      const cartItems = cart.map(item => ({ id: item.id, quantity: item.quantity }));
-      const data = await getSuggestion(selectedCustomer.id, cartItems);
-      if (data.blocked) {
-        setBlocked(data.reason);
-      } else if (data.suggestion) {
-        setSuggestion(data.suggestion);
-        setSuggestionProduct(data.product);
-        if (data.suggestion.notify && data.suggestion.discount_percent > 0) {
-          showToast('discount', `🎉 ${data.suggestion.discount_percent}% off!`, `${data.suggestion.suggestion_name} has an active discount for you!`);
+    const timer = setTimeout(async () => {
+      try {
+        const data = await getSuggestion(customer.id, cartRef.current, dismissedIds);
+        if (cancelled) return;
+        setSuggestion(data.suggestion || data.blocked ? data : null);
+        if (data.product && hasDiscount(data.product)) {
+          showToast('discount', `${data.product.discount_percent}% off for you`, `${data.product.name} is on offer right now`);
         }
+      } catch {
+        if (!cancelled) setSuggestion(null);
+      } finally {
+        if (!cancelled) setSuggestionLoading(false);
       }
-    } catch (err) { console.error('Suggestion error:', err); }
-    finally { setSuggestionLoading(false); }
-  }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [customer, cartKey, dismissedIds, showToast]);
 
-  // ========== GROWTH FEATURE 1: Abandoned Cart ==========
-  function clearAbandonTimer() {
-    if (abandonTimerRef.current) clearTimeout(abandonTimerRef.current);
-    if (countdownRef.current) clearInterval(countdownRef.current);
-    setAbandonTimer(0);
-  }
+  // ---------- Payment method order (once per customer) ----------
+  useEffect(() => {
+    if (!customer) return;
+    getPaymentMethodSuggestion(customer.id).then(setMethods).catch(() => setMethods(null));
+  }, [customer]);
 
-  async function startAbandonTimer() {
-    clearAbandonTimer();
-    setAbandonBanner(null);
-    try {
-      const config = await getAbandonConfig();
-      if (!config.enabled) return;
-      const timeout = config.timeout || 60;
-      setAbandonTimer(timeout);
-
-      // Countdown display
-      countdownRef.current = setInterval(() => {
-        setAbandonTimer(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownRef.current);
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-
-      // Trigger abandon after timeout
-      abandonTimerRef.current = setTimeout(async () => {
-        try {
-          const cartItems = cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
-          const data = await triggerAbandonedCart(selectedCustomer?.id, cartItems, cartTotal);
-          if (data.success) {
-            setAbandonBanner(data);
-            showToast('info', '⏰ Still thinking?', 'We saved your cart — here\'s a quick link to finish your order!');
-          }
-        } catch (err) { console.error('Abandon cart error:', err); }
-      }, timeout * 1000);
-    } catch (err) { console.error('Abandon config error:', err); }
-  }
-
-  // ========== GROWTH FEATURE 2: Payment Method Recommender ==========
-  async function fetchPaymentMethods() {
-    if (!selectedCustomer) return;
-    try {
-      const data = await getPaymentMethodSuggestion(selectedCustomer.id);
-      setPaymentMethods(data);
-    } catch (err) { console.error('Payment method error:', err); }
-  }
-
-  // ========== GROWTH FEATURE 3: EMI Suggestion ==========
-  async function fetchEmiSuggestion() {
-    if (cartTotal <= 0) return;
-    try {
-      const data = await getEmiSuggestion(cartTotal, selectedCustomer?.id);
-      setEmiSuggestion(data);
-    } catch (err) { console.error('EMI suggestion error:', err); }
-  }
-
-  // ========== SUGGESTION HANDLERS ==========
-  async function handleAcceptSuggestion(sugg, product) {
-    addToCart(product);
-    showToast('success', 'Suggestion Accepted', `${product.name} added to your cart`);
-    try { await acceptSuggestion(selectedCustomer?.id, sugg.suggestion_product_id, sugg.suggestion_name); } catch {}
-    setSuggestion(null);
-    setSuggestionProduct(null);
-  }
-
-  async function handleDismissSuggestion(sugg) {
-    showToast('info', 'Suggestion Dismissed', "We'll try a different recommendation next time");
-    try { await dismissSuggestion(selectedCustomer?.id, sugg.suggestion_product_id, sugg.suggestion_name); } catch {}
-  }
-
-  // ========== PAYMENT HANDLERS ==========
-  async function handlePayment() {
-    if (cart.length === 0) return;
-    setPaymentLoading(true);
-    clearAbandonTimer();
-    try {
-      const cartItems = cart.map(i => ({ id: i.id, name: i.name, price: i.price, quantity: i.quantity }));
-      const data = await createOrder(cartTotal, cartItems, selectedCustomer?.id);
-      setPaymentGate(data.gate);
-      if (!data.gate.autoApprove && !showConfirmation) {
-        setShowConfirmation(true);
-        setPaymentLoading(false);
-        return;
-      }
-      if (data.mock) {
-        setMockModal({ order: data.order, type: 'pay' });
-        setMockStep('card');
-        setPaymentLoading(false);
-      } else { openRazorpayCheckout(data.order, data.key_id); }
-    } catch (err) {
-      showToast('error', 'Order Failed', err.message);
-      setPaymentLoading(false);
+  // ---------- EMI eligibility ----------
+  useEffect(() => {
+    if (!customer || cartTotal <= 0) {
+      setEmi(null);
+      return undefined;
     }
+    const timer = setTimeout(() => {
+      getEmiSuggestion(cartTotal, customer.id).then(setEmi).catch(() => setEmi(null));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [cartTotal, customer]);
+
+  // ---------- Abandoned-cart recovery ----------
+  useEffect(() => {
+    getAbandonConfig().then(setAbandonConfig).catch(() => setAbandonConfig(null));
+  }, []);
+
+  useEffect(() => {
+    const idle = abandonConfig?.enabled && customer && cartRef.current.length > 0 && !checkout && !busy && !recovery && !recoveryLinkId;
+    if (!idle) {
+      setIdleDeadline(null);
+      return undefined;
+    }
+    // Every cart change counts as activity and restarts the idle timer
+    const timeoutMs = abandonConfig.timeout * 1000;
+    setIdleDeadline(Date.now() + timeoutMs);
+    const timer = setTimeout(async () => {
+      setIdleDeadline(null);
+      try {
+        const data = await triggerAbandonedCart(customer.id, cartRef.current);
+        if (data.success) {
+          setRecovery(data);
+          showToast('info', 'We saved your cart', 'Use the recovery link to finish your order anytime in the next 24 hours.');
+        }
+      } catch {
+        // Recovery is best-effort; never interrupt the shopper
+      }
+    }, timeoutMs);
+    return () => clearTimeout(timer);
+  }, [abandonConfig, customer, cartKey, checkout, busy, recovery, recoveryLinkId, showToast]);
+
+  // ---------- Suggestion actions ----------
+  async function handleAccept(_suggestion, product) {
+    addToCart(product.id, 1, { silent: true });
+    showToast('success', 'Added to cart', product.name);
+    acceptSuggestion(customer.id, product.id, product.name).catch(() => {});
   }
 
-  async function handleMockPaySuccess() {
-    setMockStep('processing');
-    await new Promise(r => setTimeout(r, 2000));
-    try {
-      await verifyPayment(mockModal.order.id, 'pay_mock_' + Date.now(), 'mock_valid_signature', cartTotal, selectedCustomer?.id);
-      setMockModal(null);
-      showToast('success', 'Payment Successful! 🎉', `₹${Math.round(cartTotal).toLocaleString()} paid successfully`);
-      clearCart();
-      setShowConfirmation(false);
-    } catch (err) { showToast('error', 'Payment Error', err.message); }
+  function handleDismiss(sugg) {
+    setDismissedIds(prev => [...prev, sugg.suggestion_product_id]);
+    dismissSuggestion(customer.id, sugg.suggestion_product_id, sugg.suggestion_name).catch(() => {});
   }
 
-  async function handleMockPayFailure() {
-    setMockStep('processing');
-    await new Promise(r => setTimeout(r, 1500));
-    try { await verifyPayment(mockModal.order.id, 'pay_fail_' + Date.now(), 'mock_invalid_signature', cartTotal, selectedCustomer?.id); } catch {}
-    setMockModal(null);
-    showToast('error', 'Payment Failed', "Payment couldn't be completed — no charge was made. Try again or use a different method.");
-  }
+  // ---------- Payment ----------
+  const handlePaid = useCallback(order => {
+    setCheckout(null);
+    setBusy(null);
+    clearCart();
+    reloadProducts();
+    reloadCustomers();
+    showToast('success', 'Payment successful', `Order ${order.id} · ${formatINR(order.total)}`);
+    navigate(`/orders?placed=${encodeURIComponent(order.id)}`);
+  }, [clearCart, reloadProducts, reloadCustomers, showToast, navigate]);
 
-  // ========== DIRECT MOBILE PAY WITH STORED PIN ==========
-  async function handleDirectMobilePay(isDeclineTest = false) {
-    if (!isDeclineTest && directPin !== '1234' && directPin !== 'password') {
-      showToast('error', 'Security Verification Failed', 'Invalid security PIN / password. Transaction blocked.');
+  async function openRazorpay(order, keyId) {
+    const loaded = await loadRazorpay();
+    if (!loaded) {
+      setBusy(null);
+      showToast('error', 'Checkout unavailable', 'Could not load Razorpay Checkout. Check your connection and try again.');
       return;
     }
+    const rzp = new window.Razorpay({
+      key: keyId,
+      amount: order.amount,
+      currency: order.currency,
+      order_id: order.id,
+      name: 'ShopMind AI',
+      description: `${cartCount} item${cartCount === 1 ? '' : 's'}`,
+      prefill: { name: customer.name, contact: customer.phone?.replace(/\s/g, '') },
+      theme: { color: '#E08A2E' },
+      handler: async response => {
+        try {
+          const result = await verifyPayment({
+            orderId: response.razorpay_order_id,
+            paymentId: response.razorpay_payment_id,
+            signature: response.razorpay_signature,
+            method: 'Razorpay Checkout',
+          });
+          handlePaid(result.order);
+        } catch (err) {
+          setBusy(null);
+          showToast('error', 'Payment not confirmed', err.message);
+        }
+      },
+      modal: {
+        ondismiss: () => {
+          setBusy(null);
+          showToast('warning', 'Payment cancelled', 'Your cart is still here whenever you are ready.');
+        },
+      },
+    });
+    rzp.on('payment.failed', response => {
+      reportPaymentFailure(order.id, response.error?.description).catch(() => {});
+      showToast('error', 'Payment failed', "Payment couldn't be completed — no charge was made.");
+    });
+    rzp.open();
+  }
 
-    setDirectPayLoading(true);
+  async function startCheckout(confirmed = false) {
+    setBusy('checkout');
     try {
-      if (isDeclineTest) {
-        await new Promise(r => setTimeout(r, 1200));
-        showToast('error', 'Payment Failed', 'Bank declined transaction: Insufficient funds or invalid authorization. No money was deducted.');
+      const data = await createOrder(customer.id, cart, { confirmed, recoveryLinkId });
+      if (data.requiresConfirmation) {
+        setGate({ threshold: data.gate.threshold, total: data.total, cartKey });
+        setBusy(null);
         return;
       }
-
-      await new Promise(r => setTimeout(r, 1200));
-      const orderId = 'order_direct_' + Date.now();
-      const paymentId = 'pay_direct_' + Date.now();
-
-      await verifyPayment(orderId, paymentId, 'mock_valid_signature', cartTotal, selectedCustomer?.id);
-      showToast('success', 'Money Deducted Successfully! 🎉', `₹${Math.round(cartTotal).toLocaleString()} charged to ${selectedCustomer?.phone || 'linked mobile'}`);
-      clearCart();
-      setShowConfirmation(false);
+      setGate(null);
+      if (data.mock) {
+        setCheckout({ order: data.order, failing: false });
+        setBusy(null);
+      } else {
+        await openRazorpay(data.order, data.key_id);
+      }
     } catch (err) {
-      showToast('error', 'Payment Failed', err.message);
-    } finally {
-      setDirectPayLoading(false);
+      setBusy(null);
+      showToast('error', "Couldn't start checkout", err.message);
+      if (err.status === 409) reloadProducts();
     }
   }
 
-  function openRazorpayCheckout(order, keyId) {
-    const options = {
-      key: keyId, amount: order.amount, currency: order.currency,
-      name: 'ShopMind AI', description: 'AI-Powered Commerce Demo', order_id: order.id,
-      handler: async (response) => {
-        try {
-          await verifyPayment(response.razorpay_order_id, response.razorpay_payment_id, response.razorpay_signature, cartTotal, selectedCustomer?.id);
-          showToast('success', 'Payment Successful! 🎉', `₹${Math.round(cartTotal).toLocaleString()} paid`);
-          clearCart(); setShowConfirmation(false);
-        } catch (err) { showToast('error', 'Verification Failed', err.message); }
-        setPaymentLoading(false);
-      },
-      modal: { ondismiss: () => { showToast('warning', 'Payment Cancelled', 'You closed the payment window'); setPaymentLoading(false); } },
-      prefill: { name: selectedCustomer?.name || 'Test User', email: 'test@shopmind.ai', contact: '9999999999' },
-      theme: { color: '#D9822B' },
-    };
-    if (window.Razorpay) {
-      const rzp = new window.Razorpay(options);
-      rzp.on('payment.failed', () => { showToast('error', 'Payment Failed', "Payment couldn't be completed — no charge was made."); setPaymentLoading(false); });
-      rzp.open();
-    } else {
-      setMockModal({ order, type: 'pay' }); setMockStep('card'); setPaymentLoading(false);
-    }
-  }
-
-  async function handleSimulateFailure() {
-    setPaymentLoading(true);
+  async function startFailureSimulation() {
+    setBusy('simulate');
     try {
-      const data = await simulateFailure(cartTotal || 1000, selectedCustomer?.id);
-      if (data.mock || !window.Razorpay) {
-        setMockModal({ order: data.order, type: 'fail' }); setMockStep('card'); setPaymentLoading(false);
-      } else { openRazorpayCheckout(data.order, data.key_id); }
-    } catch (err) { showToast('error', 'Simulation Error', err.message); setPaymentLoading(false); }
+      const data = await simulateFailure(customer.id, cart);
+      setCheckout({ order: data.order, failing: true });
+    } catch (err) {
+      showToast('error', 'Simulation error', err.message);
+    } finally {
+      setBusy(null);
+    }
   }
 
-  // ========== MOCK PAYMENT MODAL ==========
-  function MockPaymentModal() {
-    if (!mockModal) return null;
-    const isFailing = mockModal.type === 'fail';
-    const amount = mockModal.order.amount / 100;
-    const methodIcons = { UPI: '📱', Card: '💳', Netbanking: '🏦', Wallet: '👛', EMI: '📊' };
-    const [modalMethod, setModalMethod] = useState(
-      paymentMethods?.methods?.[0] || (selectedCustomer?.preferred_method || 'UPI')
-    );
-    const [upiInput, setUpiInput] = useState(selectedCustomer?.upi_id || 'customer@upi');
-    const [selectedBank, setSelectedBank] = useState('State Bank of India');
-
-    return (
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(5px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000, animation: 'fadeIn 0.3s ease' }}>
-        <div style={{ background: '#1A1714', borderRadius: '16px', width: '480px', maxWidth: '92vw', overflow: 'hidden', border: '1px solid var(--border-primary)', boxShadow: '0 20px 60px rgba(0,0,0,0.6)' }}>
-          {/* Header */}
-          <div style={{ background: isFailing ? 'linear-gradient(135deg, #E74C3C, #C0392B)' : 'linear-gradient(135deg, #D9822B, #E8973F)', padding: '18px 22px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ fontSize: '18px', fontWeight: '700', color: 'white' }}>{isFailing ? '🧪 Failure Simulation' : '💳 ShopMind Razorpay Payment'}</div>
-              <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)', marginTop: '2px' }}>
-                {isFailing ? 'Simulated decline test' : `Phone: ${selectedCustomer?.phone || '+91 98765 34562'} • Secure Checkout`}
-              </div>
-            </div>
-            <button onClick={() => { setMockModal(null); showToast('warning', 'Payment Cancelled', 'Payment window closed'); }} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '16px' }}>✕</button>
-          </div>
-
-          {/* Amount & Security Sync Banner */}
-          <div style={{ padding: '14px 22px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-primary)', background: 'var(--bg-primary)' }}>
-            <div>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Payable Amount</span>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: 'var(--accent-primary)' }}>₹{Math.round(amount).toLocaleString()}</div>
-            </div>
-            <div style={{ textAlign: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>
-              <div>📱 Linked Mobile</div>
-              <div style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{selectedCustomer?.phone || '+91 98765 34562'}</div>
-            </div>
-          </div>
-
-          {/* Method Selection Tabs */}
-          {!isFailing && (
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--border-primary)', background: 'var(--bg-tertiary)' }}>
-              {['UPI', 'Card', 'Netbanking', 'EMI'].map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setModalMethod(m)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 4px',
-                    border: 'none',
-                    background: modalMethod === m ? 'var(--bg-card)' : 'transparent',
-                    borderBottom: modalMethod === m ? '2px solid var(--accent-primary)' : '2px solid transparent',
-                    color: modalMethod === m ? 'var(--accent-primary)' : 'var(--text-muted)',
-                    fontSize: '12px',
-                    fontWeight: modalMethod === m ? '700' : '500',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '4px',
-                  }}
-                >
-                  <span>{methodIcons[m] || '💳'}</span>
-                  <span>{m}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {/* Tab Contents */}
-          <div style={{ padding: '20px 22px' }}>
-            {mockStep === 'card' && !isFailing && modalMethod === 'UPI' && (
-              <div className="animate-fade-in">
-                <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span>📱</span> <strong>UPI Instant Payment</strong> (GPay, PhonePe, Paytm, BHIM)
-                </div>
-
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Enter UPI ID / VPA</label>
-                  <input
-                    className="input-field"
-                    value={upiInput}
-                    onChange={(e) => setUpiInput(e.target.value)}
-                    placeholder="mobile@upi or user@okaxis"
-                    style={{ fontSize: '13px' }}
-                  />
-                </div>
-
-                <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-                  {['@okaxis', '@okhdfcbank', '@paytm', '@ybl'].map((handle) => (
-                    <button
-                      key={handle}
-                      onClick={() => setUpiInput((selectedCustomer?.name.toLowerCase() || 'user') + handle)}
-                      style={{
-                        flex: 1, padding: '4px 6px', fontSize: '11px', background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-primary)', borderRadius: '4px', color: 'var(--text-secondary)', cursor: 'pointer'
-                      }}
-                    >
-                      {handle}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Security Mobile Approval Note */}
-                <div style={{ padding: '8px 12px', background: 'var(--info-bg)', border: '1px solid rgba(52, 152, 219, 0.2)', borderRadius: '8px', fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '14px' }}>
-                  🔒 <strong>Security Verification:</strong> UPI collect request will be sent to your linked device ({selectedCustomer?.phone || '+91 98765 34562'}).
-                </div>
-
-                <button className="btn-primary" onClick={handleMockPaySuccess} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-                  ⚡ Pay ₹{Math.round(amount).toLocaleString()} via UPI
-                </button>
-              </div>
-            )}
-
-            {mockStep === 'card' && !isFailing && modalMethod === 'Card' && (
-              <div className="animate-fade-in">
-                <div style={{ marginBottom: '12px' }}>
-                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Card Number</label>
-                  <input className="input-field" value="4111 1111 1111 1111" readOnly style={{ fontFamily: 'monospace', letterSpacing: '2px', fontSize: '13px' }} />
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '14px' }}>
-                  <div><label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Expiry</label><input className="input-field" value="12/28" readOnly style={{ fontSize: '13px' }} /></div>
-                  <div><label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>CVV</label><input className="input-field" value="123" readOnly style={{ fontSize: '13px' }} /></div>
-                </div>
-                <button className="btn-primary" onClick={handleMockPaySuccess} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-                  💳 Pay ₹{Math.round(amount).toLocaleString()} via Card
-                </button>
-              </div>
-            )}
-
-            {mockStep === 'card' && !isFailing && modalMethod === 'Netbanking' && (
-              <div className="animate-fade-in">
-                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Select Bank</label>
-                <select className="input-field" value={selectedBank} onChange={(e) => setSelectedBank(e.target.value)} style={{ marginBottom: '14px', fontSize: '13px' }}>
-                  <option>State Bank of India (SBI)</option>
-                  <option>HDFC Bank</option>
-                  <option>ICICI Bank</option>
-                  <option>Axis Bank</option>
-                  <option>Kotak Mahindra Bank</option>
-                </select>
-                <button className="btn-primary" onClick={handleMockPaySuccess} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-                  🏦 Proceed with {selectedBank.split(' ')[0]}
-                </button>
-              </div>
-            )}
-
-            {mockStep === 'card' && !isFailing && modalMethod === 'EMI' && (
-              <div className="animate-fade-in">
-                <div style={{ padding: '12px', background: 'var(--bg-primary)', border: '1px solid var(--accent-border)', borderRadius: '8px', marginBottom: '14px' }}>
-                  <div style={{ fontWeight: '700', color: 'var(--accent-primary)', fontSize: '14px', marginBottom: '4px' }}>
-                    📊 3-Month No-Cost EMI
-                  </div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-primary)' }}>
-                    ₹{Math.round(amount / 3).toLocaleString()} / month for 3 months
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-                    Interest: ₹0 • Total: ₹{Math.round(amount).toLocaleString()}
-                  </div>
-                </div>
-                <button className="btn-primary" onClick={handleMockPaySuccess} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-                  📊 Confirm 3-Month EMI of ₹{Math.round(amount / 3).toLocaleString()}/mo
-                </button>
-              </div>
-            )}
-
-            {/* Failure Mode Card */}
-            {mockStep === 'card' && isFailing && (
-              <div className="animate-fade-in">
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginBottom: '6px' }}>Test Failure Card</label>
-                  <input className="input-field" value="4000 0000 0000 0002" readOnly style={{ fontFamily: 'monospace', letterSpacing: '2px' }} />
-                </div>
-                <div style={{ background: 'var(--error-bg)', border: '1px solid rgba(231, 76, 60, 0.2)', borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: '12px', color: 'var(--error)', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  ⚠️ This card will be declined to test graceful failure handling
-                </div>
-                <button className="btn-danger" onClick={handleMockPayFailure} style={{ width: '100%', justifyContent: 'center', padding: '12px', fontSize: '14px' }}>
-                  🧪 Process (Will Fail)
-                </button>
-              </div>
-            )}
-
-            {/* Processing Spinner */}
-            {mockStep === 'processing' && (
-              <div className="animate-fade-in" style={{ textAlign: 'center', padding: '20px' }}>
-                <div style={{ width: '44px', height: '44px', border: '3px solid var(--border-primary)', borderTopColor: isFailing ? 'var(--error)' : 'var(--accent-primary)', borderRadius: '50%', margin: '0 auto 16px', animation: 'spin 1s linear infinite' }} />
-                <div style={{ fontSize: '15px', fontWeight: '600' }}>{isFailing ? 'Processing decline test...' : 'Communicating with payment gateway...'}</div>
-                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>Verifying signatures & device credentials...</div>
-              </div>
-            )}
-          </div>
-
-          <div style={{ padding: '10px 22px', borderTop: '1px solid var(--border-primary)', textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)' }}>
-            🔒 Secured with Razorpay Test Mode • Cryptographic Signature Verification
-          </div>
-        </div>
-      </div>
-    );
+  async function handlePinPay(pin, resetPin) {
+    setBusy('pin');
+    try {
+      const data = await pinPay(customer.id, cart, pin, { recoveryLinkId });
+      handlePaid(data.order);
+    } catch (err) {
+      setBusy(null);
+      resetPin();
+      showToast('error', err.status === 401 ? 'Payment blocked' : 'Payment failed', err.message);
+    }
   }
 
-  // ========== EMPTY CART ==========
+  // ---------- Render ----------
+  if (productsLoading) return <div className="page"><Loading label="Loading your cart…" /></div>;
+
   if (cart.length === 0) {
     return (
-      <div className="page-container" style={{ textAlign: 'center', padding: '80px 20px' }}>
-        <div className="animate-fade-in">
-          <span style={{ fontSize: '64px', display: 'block', marginBottom: '20px' }}>🛒</span>
-          <h2 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Your cart is empty</h2>
-          <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Browse our catalog and add items to get AI-powered suggestions</p>
-          <Link to="/" className="btn-primary" style={{ display: 'inline-flex' }}>🏪 Browse Catalog</Link>
-        </div>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <div className="page">
+        <EmptyState icon="🛒" title="Your cart is empty" action={<Link to="/" className="btn btn-primary">Browse products</Link>}>
+          Add something you like and ShopMind will suggest what goes well with it.
+        </EmptyState>
       </div>
     );
   }
 
-  // ========== MAIN CART VIEW ==========
+  const firstMethod = methods?.methods?.[0];
+
   return (
-    <div className="page-container animate-fade-in">
-      <h1 style={{ fontSize: '28px', fontWeight: '700', marginBottom: '24px', letterSpacing: '-0.5px' }}>🛒 Shopping Cart</h1>
-
-      {/* Feature 1: Abandoned Cart Recovery Banner */}
-      {abandonBanner && (
-        <div className="animate-slide-up" style={{ marginBottom: '20px', padding: '16px 20px', background: 'linear-gradient(135deg, rgba(52, 152, 219, 0.15), rgba(217, 130, 43, 0.1))', border: '1px solid rgba(52, 152, 219, 0.3)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <span style={{ fontSize: '32px' }}>⏰</span>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontWeight: '600', fontSize: '15px', marginBottom: '4px' }}>Still thinking? Here's a quick link to finish your order 👉</div>
-            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-              We saved your cart of ₹{Math.round(cartTotal).toLocaleString()} — complete the purchase anytime!
-            </div>
-          </div>
-          <a href={abandonBanner.recoveryLink} target="_blank" rel="noopener noreferrer" className="btn-primary" style={{ whiteSpace: 'nowrap' }}>
-            💳 Pay Now
-          </a>
-        </div>
-      )}
-
-      {/* Abandon timer countdown */}
-      {abandonTimer > 0 && !abandonBanner && (
-        <div style={{ marginBottom: '16px', fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span>⏱️</span> Recovery link generates in {abandonTimer}s if no checkout action
-        </div>
-      )}
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '32px', alignItems: 'start' }}>
-        {/* Cart Items */}
+    <div className="page fade-in">
+      <div className="page-header">
         <div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {cart.map(item => {
-              const dp = item.discount_active ? item.price * (1 - item.discount_percent / 100) : item.price;
-              return (
-                <div key={item.id} className="glass-card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <div style={{ width: '60px', height: '60px', borderRadius: 'var(--radius-md)', background: 'var(--bg-tertiary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '28px', flexShrink: 0 }}>{item.image}</div>
-                  <div style={{ flex: 1 }}>
-                    <h3 style={{ fontSize: '15px', fontWeight: '600', marginBottom: '4px' }}>{item.name}</h3>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ color: 'var(--accent-primary)', fontWeight: '600' }}>₹{Math.round(dp).toLocaleString()}</span>
-                      {item.discount_active && <span style={{ fontSize: '12px', color: 'var(--text-muted)', textDecoration: 'line-through' }}>₹{item.price.toLocaleString()}</span>}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <button className="btn-secondary" onClick={() => updateCartQuantity(item.id, item.quantity - 1)} style={{ padding: '4px 10px', fontSize: '14px' }}>−</button>
-                    <span style={{ width: '30px', textAlign: 'center', fontWeight: '600' }}>{item.quantity}</span>
-                    <button className="btn-secondary" onClick={() => updateCartQuantity(item.id, item.quantity + 1)} style={{ padding: '4px 10px', fontSize: '14px' }}>+</button>
-                  </div>
-                  <span style={{ fontWeight: '700', fontSize: '16px', minWidth: '80px', textAlign: 'right' }}>₹{Math.round(dp * item.quantity).toLocaleString()}</span>
-                  <button onClick={() => removeFromCart(item.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '18px', padding: '4px' }}>🗑️</button>
-                </div>
-              );
-            })}
-          </div>
+          <h1>Your cart</h1>
+          <p>{cartCount} item{cartCount === 1 ? '' : 's'} · shopping as {customer?.name}</p>
+        </div>
+        <Link to="/" className="btn btn-ghost">← Continue shopping</Link>
+      </div>
 
-          {/* Blocked Guardrail */}
-          {blocked && (
-            <div className="glass-card animate-slide-up" style={{ padding: '16px', marginTop: '20px', borderColor: 'rgba(243, 156, 18, 0.3)', background: 'var(--warning-bg)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontSize: '20px' }}>🚫</span>
-                <div>
-                  <span style={{ fontWeight: '600', fontSize: '14px', color: 'var(--warning)' }}>Suggestion Blocked by Guardrail</span>
-                  <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginTop: '4px' }}>{blocked}</p>
+      <div className="cart-layout">
+        <div className="stack" style={{ gap: 18 }}>
+          {recoveryLinkId && (
+            <div className="notice notice-success">
+              <div><div className="notice-title">Welcome back!</div>We restored the cart you saved earlier. It's ready for checkout.</div>
+            </div>
+          )}
+
+          {recovery && (
+            <div className="notice notice-info fade-in">
+              <div className="grow">
+                <div className="notice-title">Still deciding? We saved your cart.</div>
+                Your {formatINR(recovery.cartTotal)} cart is saved for 24 hours. Open this link on any device to pick up where you left off:
+                <div className="mono small" style={{ marginTop: 6, wordBreak: 'break-all' }}>
+                  <a href={recovery.recoveryLink}>{recovery.recoveryLink}</a>
                 </div>
               </div>
             </div>
           )}
 
-          {/* AI Suggestion */}
-          <SuggestionPanel suggestion={suggestion} product={suggestionProduct} loading={suggestionLoading} onAccept={handleAcceptSuggestion} onDismiss={handleDismissSuggestion} />
-        </div>
-
-        {/* ===== ORDER SUMMARY ===== */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', position: 'sticky', top: '88px' }}>
-          <div className="glass-card" style={{ padding: '24px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '20px' }}>Order Summary</h2>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>Items ({cart.reduce((s, i) => s + i.quantity, 0)})</span>
-                <span>₹{Math.round(cart.reduce((s, i) => s + i.price * i.quantity, 0)).toLocaleString()}</span>
-              </div>
-              {cart.some(i => i.discount_active) && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--success)' }}>
-                  <span>Discounts</span>
-                  <span>-₹{Math.round(cart.reduce((s, i) => i.discount_active ? s + (i.price * i.discount_percent / 100) * i.quantity : s, 0)).toLocaleString()}</span>
+          <div className="card" style={{ padding: 0 }}>
+            {cart.map((line, index) => (
+              <div key={line.id} className="cart-line" style={{ padding: 16, borderTop: index ? '1px solid var(--border-primary)' : 'none' }}>
+                <Link to={`/product/${line.id}`} className="thumb"><ProductImage image={line.product.image} name={line.product.name} size={30} /></Link>
+                <div className="grow">
+                  <Link to={`/product/${line.id}`} className="cart-line-name">{line.product.name}</Link>
+                  <div className="price-row small">
+                    <span>{formatINR(line.unitPrice)}</span>
+                    {hasDiscount(line.product) && (
+                      <>
+                        <span className="strike">{formatINR(line.product.price)}</span>
+                        <span className="success-text">{line.product.discount_percent}% off</span>
+                      </>
+                    )}
+                  </div>
+                  {line.quantity >= line.product.stock && <span className="small" style={{ color: 'var(--warning)' }}>Max available</span>}
                 </div>
-              )}
-              <div style={{ borderTop: '1px solid var(--border-primary)', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontSize: '18px', fontWeight: '700' }}>
-                <span>Total</span>
-                <span style={{ color: 'var(--accent-primary)' }}>₹{Math.round(cartTotal).toLocaleString()}</span>
+                <QtyStepper value={line.quantity} max={line.product.stock} min={0} onChange={q => setQuantity(line.id, q)} />
+                <span className="cart-line-total">{formatINR(line.lineTotal)}</span>
+                <button className="btn btn-ghost" onClick={() => removeFromCart(line.id)} aria-label={`Remove ${line.product.name}`}>✕</button>
               </div>
-            </div>
-
-            {/* Feature 3: EMI Suggestion Card */}
-            {emiSuggestion && emiSuggestion.eligible && (
-              <div className="animate-slide-up" style={{ padding: '12px 16px', background: 'linear-gradient(135deg, rgba(217, 130, 43, 0.1), rgba(46, 204, 113, 0.05))', border: '1px solid var(--accent-border)', borderRadius: 'var(--radius-md)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span>💳</span>
-                  <span style={{ fontWeight: '600', color: 'var(--accent-primary)', fontSize: '14px' }}>EMI Available</span>
-                </div>
-                <p style={{ fontSize: '13px', color: 'var(--text-primary)', marginBottom: '4px' }}>
-                  Split into <strong>{emiSuggestion.months} easy payments</strong> of <strong style={{ color: 'var(--accent-primary)' }}>₹{emiSuggestion.emiAmount?.toLocaleString()}</strong>
-                </p>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                  💡 {emiSuggestion.reason}
-                </p>
-              </div>
-            )}
-
-            {/* Payment Gate Warning */}
-            {showConfirmation && paymentGate && !paymentGate.autoApprove && (
-              <div style={{ padding: '12px 16px', background: 'var(--warning-bg)', border: '1px solid rgba(243, 156, 18, 0.3)', borderRadius: 'var(--radius-md)', marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span>⚠️</span>
-                  <span style={{ fontWeight: '600', color: 'var(--warning)', fontSize: '13px' }}>Payment Gate — Manual Confirmation Required</span>
-                </div>
-                <p style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
-                  Amount ₹{Math.round(cartTotal).toLocaleString()} exceeds auto-approve threshold of ₹{paymentGate.threshold.toLocaleString()}. Click "Confirm & Pay" to proceed.
-                </p>
-              </div>
-            )}
-
-            {/* Feature 2: Payment Method Info */}
-            {paymentMethods && paymentMethods.reordered && (
-              <div style={{ fontSize: '12px', color: 'var(--info)', marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 12px', background: 'var(--info-bg)', borderRadius: 'var(--radius-sm)' }}>
-                <span>✨</span> {paymentMethods.explainability}
-              </div>
-            )}
-
-            {/* FEATURE: Instant 1-Click Direct Pay via Mobile Sync & Pre-Stored PIN */}
-            <div style={{
-              background: 'linear-gradient(135deg, rgba(217, 130, 43, 0.15), rgba(46, 204, 113, 0.1))',
-              border: '1px solid var(--accent-border)',
-              borderRadius: 'var(--radius-md)',
-              padding: '16px',
-              marginBottom: '16px',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '12px',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '18px' }}>⚡</span>
-                  <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-primary)' }}>
-                    Direct Pay (Mobile Synced)
-                  </span>
-                </div>
-                <span className="badge badge-success" style={{ fontSize: '10px' }}>
-                  ● Stored & Synced
-                </span>
-              </div>
-
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <div>📱 <strong>Connected Mobile:</strong> <span style={{ color: 'var(--text-primary)', fontWeight: '600' }}>{selectedCustomer?.phone || '+91 98765 34562'}</span></div>
-                <div>⚡ <strong>Linked UPI:</strong> <span style={{ color: 'var(--accent-primary)', fontWeight: '600' }}>{selectedCustomer?.upi_id || 'customer@upi'}</span></div>
-              </div>
-
-              <div style={{ background: 'var(--bg-primary)', padding: '10px', borderRadius: '8px', border: '1px solid var(--border-primary)' }}>
-                <label style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>
-                  Authorized Security PIN / Password (Pre-Stored: 1234)
-                </label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    type="password"
-                    className="input-field"
-                    maxLength="8"
-                    value={directPin}
-                    onChange={(e) => setDirectPin(e.target.value)}
-                    placeholder="PIN"
-                    style={{ width: '80px', textAlign: 'center', letterSpacing: '4px', fontSize: '14px', padding: '6px' }}
-                  />
-                  <button
-                    className="btn-primary"
-                    onClick={() => handleDirectMobilePay(false)}
-                    disabled={directPayLoading || cart.length === 0}
-                    style={{
-                      flex: 1,
-                      justifyContent: 'center',
-                      padding: '8px 12px',
-                      fontSize: '13px',
-                      fontWeight: '700',
-                      background: 'linear-gradient(135deg, #2ECC71, #27AE60)',
-                      border: 'none',
-                    }}
-                  >
-                    {directPayLoading ? '⏳ Deducting Money...' : `⚡ 1-Click Pay ₹${Math.round(cartTotal).toLocaleString()}`}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
-                <a
-                  href={`https://rzp.io/l/quick_${selectedCustomer?.id || 'cust'}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: 'var(--accent-primary)', textDecoration: 'underline' }}
-                >
-                  🔗 Direct Link Sent to Phone
-                </a>
-                <button
-                  onClick={() => handleDirectMobilePay(true)}
-                  disabled={directPayLoading}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#E74C3C',
-                    fontSize: '11px',
-                    cursor: 'pointer',
-                    textDecoration: 'underline',
-                  }}
-                >
-                  🧪 Test Decline Condition
-                </button>
-              </div>
-            </div>
-
-            <button className="btn-primary" onClick={handlePayment} disabled={paymentLoading} style={{ width: '100%', justifyContent: 'center', padding: '14px', fontSize: '15px' }}>
-              {paymentLoading ? '⏳ Processing...' : showConfirmation ? '✓ Confirm & Pay' : '💳 Pay with Razorpay'}
-            </button>
-            <button className="btn-danger" onClick={handleSimulateFailure} disabled={paymentLoading} style={{ width: '100%', justifyContent: 'center', marginTop: '10px', fontSize: '13px', padding: '10px' }}>
-              🧪 Simulate Payment Failure
-            </button>
-            <p style={{ textAlign: 'center', fontSize: '11px', color: 'var(--text-muted)', marginTop: '12px' }}>🔒 Test mode — no real charges</p>
+            ))}
           </div>
+
+          <SuggestionPanel
+            loading={suggestionLoading}
+            suggestion={suggestion?.suggestion}
+            product={suggestion?.product}
+            blocked={suggestion?.blocked}
+            onAccept={handleAccept}
+            onDismiss={handleDismiss}
+          />
         </div>
+
+        {/* ===== Order summary ===== */}
+        <aside className="sticky-panel stack" style={{ gap: 16 }}>
+          <div className="card">
+            <h2 style={{ marginBottom: 16 }}>Order summary</h2>
+            <div className="stack-sm">
+              <div className="summary-row"><span className="secondary">Items ({cartCount})</span><span>{formatINR(cartSubtotal)}</span></div>
+              {cartDiscount > 0 && <div className="summary-row success-text"><span>Discounts</span><span>−{formatINR(cartDiscount)}</span></div>}
+              <div className="summary-row"><span className="secondary">Delivery</span><span className="success-text">Free</span></div>
+            </div>
+            <hr className="divider" />
+            <div className="summary-row summary-total"><span>Total</span><span>{formatINR(cartTotal)}</span></div>
+
+            {emi?.eligible && (
+              <div className="notice notice-accent" style={{ marginTop: 16 }}>
+                <div>
+                  <div className="notice-title">No-cost EMI available</div>
+                  Pay {formatINR(emi.emiAmount)}/month for {emi.months} months. Choose EMI at checkout.
+                </div>
+              </div>
+            )}
+
+            {methods?.reordered && (
+              <div style={{ marginTop: 16 }}>
+                <div className="method-list">
+                  {methods.methods.map((m, i) => <span key={m} className={`method-pill${i === 0 ? ' first' : ''}`}>{m}</span>)}
+                </div>
+                <p className="field-hint">✨ {methods.explainability}</p>
+              </div>
+            )}
+
+            {gate ? (
+              <div className="stack" style={{ marginTop: 16 }}>
+                <div className="notice notice-warning">
+                  <div>
+                    <div className="notice-title">Please confirm this payment</div>
+                    {formatINR(gate.total)} is above the {formatINR(gate.threshold)} auto-approve limit, so we need your explicit go-ahead.
+                  </div>
+                </div>
+                <button className="btn btn-primary btn-block btn-lg" onClick={() => startCheckout(true)} disabled={!!busy}>
+                  {busy === 'checkout' ? 'Starting checkout…' : `Confirm & pay ${formatINR(gate.total)}`}
+                </button>
+                <button className="btn btn-ghost btn-block" onClick={() => setGate(null)} disabled={!!busy}>Not now</button>
+              </div>
+            ) : (
+              <button className="btn btn-primary btn-block btn-lg" style={{ marginTop: 16 }} onClick={() => startCheckout(false)} disabled={!!busy}>
+                {busy === 'checkout' ? 'Starting checkout…' : `Checkout · ${formatINR(cartTotal)}`}
+              </button>
+            )}
+
+            {idleDeadline && <div style={{ marginTop: 10, textAlign: 'center' }}><IdleCountdown key={idleDeadline} deadline={idleDeadline} /></div>}
+          </div>
+
+          <div className="card">
+            <div className="row-between" style={{ marginBottom: 8 }}>
+              <h3>One-tap UPI</h3>
+              <span className="badge badge-success">Saved</span>
+            </div>
+            <p className="small secondary" style={{ marginBottom: 12 }}>
+              Pay with your saved UPI {customer?.upi_id ? <strong className="accent">{customer.upi_id}</strong> : null}. Your security PIN is checked by our server — nothing is charged without it.
+            </p>
+            <PinForm busy={busy === 'pin'} label={`Pay ${formatINR(cartTotal)}`} onSubmit={handlePinPay} />
+            {firstMethod && firstMethod !== 'UPI' && <p className="field-hint">Prefer {firstMethod}? Use Checkout above.</p>}
+          </div>
+
+          <div className="card card-tight">
+            <div className="row-between">
+              <div>
+                <h3>Test a declined payment</h3>
+                <p className="small muted">See how a failure is handled — no charge, logged in the audit trail.</p>
+              </div>
+              <button className="btn btn-danger btn-sm" onClick={startFailureSimulation} disabled={!!busy}>
+                {busy === 'simulate' ? '…' : 'Simulate'}
+              </button>
+            </div>
+          </div>
+        </aside>
       </div>
 
-      <MockPaymentModal />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      {checkout && (
+        <PaymentModal
+          order={checkout.order}
+          failing={checkout.failing}
+          methods={methods?.methods}
+          emi={emi}
+          customer={customer}
+          onClose={() => setCheckout(null)}
+          onPaid={handlePaid}
+          onFailed={() => showToast('error', 'Payment failed', "Payment couldn't be completed — no charge was made.")}
+        />
+      )}
     </div>
   );
 }

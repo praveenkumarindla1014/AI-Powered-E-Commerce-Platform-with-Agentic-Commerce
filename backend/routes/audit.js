@@ -1,39 +1,23 @@
 const express = require('express');
 const router = express.Router();
-const { readAuditLogs } = require('../services/auditLogger');
+const { readAuditLogs, clearAuditLogs } = require('../services/auditLogger');
 
-// GET /api/audit — Fetch all audit log entries (newest first)
+// GET /api/audit — Audit entries, newest first. Optional ?action=&status=&limit=
 router.get('/', (req, res) => {
-  try {
-    const logs = readAuditLogs();
+  const { action, status } = req.query;
+  const limit = Math.min(1000, Number(req.query.limit) || 1000);
 
-    // Optional filtering
-    const { action, status } = req.query;
-    let filtered = logs;
+  let logs = readAuditLogs();
+  if (action) logs = logs.filter(l => l.action === action);
+  if (status) logs = logs.filter(l => l.status === status);
 
-    if (action) {
-      filtered = filtered.filter(l => l.action === action);
-    }
-    if (status) {
-      filtered = filtered.filter(l => l.status === status);
-    }
-
-    res.json({ success: true, logs: filtered, total: filtered.length });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  res.json({ success: true, logs: logs.slice(0, limit), total: logs.length });
 });
 
-// DELETE /api/audit — Clear audit logs (for testing)
+// DELETE /api/audit — Clear the audit trail
 router.delete('/', (req, res) => {
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    fs.writeFileSync(path.join(__dirname, '..', 'data', 'audit_logs.json'), '[]');
-    res.json({ success: true, message: 'Audit logs cleared' });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  clearAuditLogs();
+  res.json({ success: true, message: 'Audit logs cleared' });
 });
 
 module.exports = router;

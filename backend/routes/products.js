@@ -1,137 +1,110 @@
 const express = require('express');
 const router = express.Router();
-const fs = require('fs');
-const path = require('path');
+const store = require('../services/store');
+const { logAudit } = require('../services/auditLogger');
 
-const PRODUCTS_FILE = path.join(__dirname, '..', 'data', 'products.json');
-const DEFAULT_PRODUCTS_FILE = path.join(__dirname, '..', 'data', 'products_default.json');
-
-function readProducts() {
-  const data = fs.readFileSync(PRODUCTS_FILE, 'utf-8');
-  return JSON.parse(data);
-}
-
-function writeProducts(products) {
-  fs.writeFileSync(PRODUCTS_FILE, JSON.stringify(products, null, 2));
-}
+const USD_TO_INR = 85;
 
 // GET /api/products — List all catalog products
 router.get('/', (req, res) => {
-  try {
-    const products = readProducts();
-    res.json({ success: true, products });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+  res.json({ success: true, products: store.read('products') });
 });
 
-// POST /api/products/sync-dummyjson — Fetch and sync products from DummyJSON API
+// POST /api/products/sync-dummyjson — Import extra products from the DummyJSON API
 router.post('/sync-dummyjson', async (req, res) => {
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 30));
+
   try {
-    const limit = Number(req.query.limit) || 45;
-    const response = await fetch(`https://dummyjson.com/products?limit=${limit}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch DummyJSON: HTTP ${response.status}`);
-    }
+    const response = await fetch(`https://dummyjson.com/products?limit=${limit}`, {
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!response.ok) throw new Error(`DummyJSON responded with HTTP ${response.status}`);
     const data = await response.json();
 
-    const dummyProducts = data.products.map(p => {
+    const imported = data.products.map(p => {
       const discountPct = Math.round(p.discountPercentage || 0);
-      // Realistic INR price: price in USD * 85
-      const inrPrice = Math.max(299, Math.round(p.price * 85));
-
       return {
         id: `dj_${p.id}`,
         name: p.title,
         category: p.category,
-        price: inrPrice,
-        stock: p.stock || 20,
-        tags: Array.isArray(p.tags) && p.tags.length > 0 ? p.tags : [p.category, p.brand || 'lifestyle'],
+        price: Math.max(299, Math.round(p.price * USD_TO_INR)),
+        stock: p.stock ?? 20,
+        tags: Array.isArray(p.tags) && p.tags.length > 0 ? p.tags : [p.category],
         description: p.description,
         discount_percent: discountPct,
         discount_active: discountPct > 8,
-        image: p.thumbnail || (p.images && p.images[0]) || '📦',
-        brand: p.brand || 'ShopMind Select',
-        rating: p.rating || 4.5
+        image: p.thumbnail || p.images?.[0] || '📦',
+        brand: p.brand || null,
+        rating: p.rating ?? null,
       };
     });
 
-    // Merge or replace: keep original products, append/update DummyJSON items
-    const existing = readProducts();
-    const existingMap = new Map();
-    existing.forEach(p => existingMap.set(p.id, p));
+    // Keep curated products, add or refresh the imported ones
+    const byId = new Map(store.read('products').map(p => [p.id, p]));
+    imported.forEach(p => byId.set(p.id, p));
+    const merged = [...byId.values()];
+    store.write('products', merged);
 
-    dummyProducts.forEach(dp => {
-      existingMap.set(dp.id, dp);
+    logAudit('catalog_synced', {
+      status: 'success',
+      reasoning: `Imported ${imported.length} products from DummyJSON. Catalog now has ${merged.length} products.`,
     });
-
-    const merged = Array.from(existingMap.values());
-    writeProducts(merged);
 
     res.json({
       success: true,
-      message: `Successfully synced ${dummyProducts.length} products from DummyJSON!`,
+      message: `Imported ${imported.length} products from DummyJSON`,
       totalProducts: merged.length,
-      syncedCount: dummyProducts.length,
-      products: merged
+      products: merged,
     });
   } catch (error) {
-    console.error('DummyJSON sync error:', error);
-    res.status(500).json({ success: false, error: error.message });
+    console.error('DummyJSON sync error:', error.message);
+    res.status(502).json({ success: false, error: `Could not reach DummyJSON: ${error.message}` });
   }
 });
 
-// POST /api/products/reset-default — Restore original curated product catalog
-router.post('/reset-default', (req, res) => {
-  try {
-    if (fs.existsSync(DEFAULT_PRODUCTS_FILE)) {
-      const defaultData = fs.readFileSync(DEFAULT_PRODUCTS_FILE, 'utf-8');
-      fs.writeFileSync(PRODUCTS_FILE, defaultData);
-      const products = JSON.parse(defaultData);
-      return res.json({ success: true, message: 'Catalog reset to original state', products });
+// POST /api/products/reset — Restore the original curated catalog (prices, stock, discounts)
+router.post('/reset', (req, res) => {
+  store.reset('products');
+  logAudit('catalog_reset', { status: 'info', reasoning: 'Catalog restored to the curated default products' });
+  res.json({ success: true, message: 'Catalog restored to default', products: store.read('products') });
+});
+
+// PATCH /api/products/:id/discount — Change a product's discount
+router.patch('/:id/discount', (req, res) => {
+  const products = store.read('products');
+  const product = products.find(p => p.id === req.params.id);
+  if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+
+  const { discount_active, discount_percent } = req.body;
+
+  if (discount_percent !== undefined) {
+    const pct = Number(discount_percent);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 90) {
+      return res.status(400).json({ success: false, error: 'Discount must be between 0 and 90%' });
     }
-    res.json({ success: true, message: 'Default catalog already active', products: readProducts() });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
+    product.discount_percent = Math.round(pct);
   }
+  if (discount_active !== undefined) product.discount_active = Boolean(discount_active);
+
+  store.write('products', products);
+
+  logAudit(product.discount_active ? 'discount_applied' : 'discount_removed', {
+    status: 'info',
+    amount: product.price,
+    reasoning: product.discount_active
+      ? `${product.discount_percent}% discount active on "${product.name}"`
+      : `Discount turned off for "${product.name}"`,
+    details: { productId: product.id, discount_percent: product.discount_percent },
+  });
+
+  res.json({ success: true, product });
 });
 
-// GET /api/discounts — View discount info for all products
-router.get('/discounts', (req, res) => {
-  try {
-    const products = readProducts();
-    const discounts = products.map(p => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      discount_percent: p.discount_percent,
-      discount_active: p.discount_active
-    }));
-    res.json({ success: true, discounts });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-// POST /api/discounts — Toggle discount on a product
-router.post('/discounts', (req, res) => {
-  try {
-    const { productId, discount_active, discount_percent } = req.body;
-    const products = readProducts();
-    const product = products.find(p => p.id === productId);
-
-    if (!product) {
-      return res.status(404).json({ success: false, error: 'Product not found' });
-    }
-
-    if (discount_active !== undefined) product.discount_active = discount_active;
-    if (discount_percent !== undefined) product.discount_percent = Number(discount_percent);
-
-    writeProducts(products);
-    res.json({ success: true, product });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
+// GET /api/products/:id — Single product
+router.get('/:id', (req, res) => {
+  const product = store.read('products').find(p => p.id === req.params.id);
+  if (!product) return res.status(404).json({ success: false, error: 'Product not found' });
+  res.json({ success: true, product });
 });
 
 module.exports = router;

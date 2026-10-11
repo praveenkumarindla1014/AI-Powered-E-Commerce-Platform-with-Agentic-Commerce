@@ -5,11 +5,19 @@
     "category": "electronics",
     "price": 2499,
     "stock": 25,
-    "tags": ["audio", "bluetooth", "wireless", "earbuds"],
+    "tags": [
+      "audio",
+      "bluetooth",
+      "wireless",
+      "earbuds"
+    ],
     "description": "Premium true wireless earbuds with active noise cancellation, 30-hour battery life, and crystal-clear sound quality.",
     "discount_percent": 15,
     "discount_active": true,
-    "image": "🎧"
+    "image": "🎧",
+    "brand": "SoundCore",
+    "rating": 4.4,
+    "rating_count": 12840
   },
   {
     "id": "prod_002",
@@ -17,11 +25,19 @@
     "category": "gaming",
     "price": 3999,
     "stock": 18,
-    "tags": ["keyboard", "mechanical", "RGB", "gaming"],
+    "tags": [
+      "keyboard",
+      "mechanical",
+      "RGB",
+      "gaming"
+    ],
     "description": "Hot-swappable mechanical keyboard with per-key RGB lighting, tactile switches, and aluminum frame.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "⌨️"
+    "image": "⌨️",
+    "brand": "KeyForge",
+    "rating": 4.6,
+    "rating_count": 5321
   },
   {
     "id": "prod_003",
@@ -29,11 +45,19 @@
     "category": "electronics",
     "price": 1299,
     "stock": 40,
-    "tags": ["USB-C", "hub", "adapter", "connectivity"],
+    "tags": [
+      "USB-C",
+      "hub",
+      "adapter",
+      "connectivity"
+    ],
     "description": "Compact 7-in-1 USB-C hub with HDMI 4K, USB 3.0, SD card reader, and 100W power delivery.",
     "discount_percent": 10,
     "discount_active": true,
-    "image": "🔌"
+    "image": "🔌",
+    "brand": "Portix",
+    "rating": 4.3,
+    "rating_count": 8710
   },
   {
     "id": "prod_004",
@@ -41,11 +65,19 @@
     "category": "electronics",
     "price": 5999,
     "stock": 12,
-    "tags": ["smartwatch", "fitness", "health", "tracker"],
+    "tags": [
+      "smartwatch",
+      "fitness",
+      "health",
+      "tracker"
+    ],
     "description": "Advanced smartwatch with heart rate monitor, SpO2 sensor, GPS tracking, and 7-day battery life.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "⌚"
+    "image": "⌚",
+    "brand": "FitPulse",
+    "rating": 4.2,
+    "rating_count": 3502
   },
   {
     "id": "prod_005",
@@ -53,11 +85,19 @@
     "category": "fashion",
     "price": 1799,
     "stock": 30,
-    "tags": ["hoodie", "streetwear", "trendy", "fashion"],
+    "tags": [
+      "hoodie",
+      "streetwear",
+      "trendy",
+      "fashion"
+    ],
     "description": "Premium cotton oversized hoodie with drop shoulders, kangaroo pocket, and minimalist design.",
     "discount_percent": 20,
     "discount_active": true,
-    "image": "👕"
+    "image": "👕",
+    "brand": "Urban Thread",
+    "rating": 4.1,
+    "rating_count": 2210
   },
   {
     "id": "prod_006",
@@ -65,11 +105,19 @@
     "category": "fashion",
     "price": 3499,
     "stock": 22,
-    "tags": ["sneakers", "running", "trendy", "shoes"],
+    "tags": [
+      "sneakers",
+      "running",
+      "trendy",
+      "shoes"
+    ],
     "description": "Lightweight running sneakers with responsive cushioning, breathable mesh upper, and modern silhouette.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "👟"
+    "image": "👟",
+    "brand": "StrideX",
+    "rating": 4.5,
+    "rating_count": 6403
   },
   {
     "id": "prod_007",
@@ -77,11 +125,18 @@
     "category": "fashion",
     "price": 899,
     "stock": 50,
-    "tags": ["wallet", "leather", "accessories"],
+    "tags": [
+      "wallet",
+      "leather",
+      "accessories"
+    ],
     "description": "Genuine leather bifold wallet with RFID blocking, 8 card slots, and coin pocket.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "👛"
+    "image": "👛",
+    "brand": "Hide & Co",
+    "rating": 4.3,
+    "rating_count": 1987
   },
   {
     "id": "prod_008",
@@ -89,11 +144,19 @@
     "category": "health",
     "price": 2199,
     "stock": 15,
-    "tags": ["health", "blood pressure", "monitor", "medical"],
+    "tags": [
+      "health",
+      "blood pressure",
+      "monitor",
+      "medical"
+    ],
     "description": "Clinically validated automatic blood pressure monitor with large LCD display and memory for 120 readings.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "🩺"
+    "image": "🩺",
+    "brand": "CareWell",
+    "rating": 4.6,
+    "rating_count": 9874
   },
   {
     "id": "prod_009",
@@ -101,11 +164,20 @@
     "category": "health",
     "price": 499,
     "stock": 60,
-    "tags": ["foot", "cushion", "comfort", "orthopedic", "walking"],
+    "tags": [
+      "foot",
+      "cushion",
+      "comfort",
+      "orthopedic",
+      "walking"
+    ],
     "description": "Medical-grade gel foot cushions with arch support, shock absorption, and anti-slip design for all-day comfort.",
     "discount_percent": 20,
     "discount_active": true,
-    "image": "🦶"
+    "image": "🦶",
+    "brand": "ComfortStep",
+    "rating": 4.2,
+    "rating_count": 15320
   },
   {
     "id": "prod_010",
@@ -113,11 +185,19 @@
     "category": "health",
     "price": 999,
     "stock": 35,
-    "tags": ["yoga", "mat", "fitness", "exercise"],
+    "tags": [
+      "yoga",
+      "mat",
+      "fitness",
+      "exercise"
+    ],
     "description": "Extra-thick eco-friendly yoga mat with non-slip surface, alignment lines, and carrying strap.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "🧘"
+    "image": "🧘",
+    "brand": "ZenFlex",
+    "rating": 4.4,
+    "rating_count": 7710
   },
   {
     "id": "prod_011",
@@ -125,11 +205,19 @@
     "category": "health",
     "price": 649,
     "stock": 45,
-    "tags": ["tea", "herbal", "wellness", "health"],
+    "tags": [
+      "tea",
+      "herbal",
+      "wellness",
+      "health"
+    ],
     "description": "Curated set of 6 organic herbal teas — chamomile, turmeric, ginger, peppermint, green tea, and ashwagandha.",
     "discount_percent": 10,
     "discount_active": false,
-    "image": "🍵"
+    "image": "🍵",
+    "brand": "Tea Ritual",
+    "rating": 4,
+    "rating_count": 1204
   },
   {
     "id": "prod_012",
@@ -137,11 +225,20 @@
     "category": "home",
     "price": 8999,
     "stock": 8,
-    "tags": ["chair", "ergonomic", "office", "WFH", "desk"],
+    "tags": [
+      "chair",
+      "ergonomic",
+      "office",
+      "WFH",
+      "desk"
+    ],
     "description": "Full-mesh ergonomic chair with lumbar support, adjustable armrests, headrest, and 135° recline.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "🪑"
+    "image": "🪑",
+    "brand": "ErgoNest",
+    "rating": 4.5,
+    "rating_count": 2650
   },
   {
     "id": "prod_013",
@@ -149,11 +246,20 @@
     "category": "home",
     "price": 699,
     "stock": 55,
-    "tags": ["desk", "organizer", "home", "office", "WFH"],
+    "tags": [
+      "desk",
+      "organizer",
+      "home",
+      "office",
+      "WFH"
+    ],
     "description": "Multi-compartment bamboo desk organizer with phone stand, pen holder, and cable management slots.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "📦"
+    "image": "📦",
+    "brand": "Bambooo",
+    "rating": 4.3,
+    "rating_count": 3311
   },
   {
     "id": "prod_014",
@@ -161,11 +267,20 @@
     "category": "home",
     "price": 399,
     "stock": 70,
-    "tags": ["LED", "smart", "bulb", "home", "lighting"],
+    "tags": [
+      "LED",
+      "smart",
+      "bulb",
+      "home",
+      "lighting"
+    ],
     "description": "WiFi-enabled smart LED bulbs with 16 million colors, voice control, and scheduling via app.",
     "discount_percent": 25,
     "discount_active": true,
-    "image": "💡"
+    "image": "💡",
+    "brand": "Lumio",
+    "rating": 4.1,
+    "rating_count": 22040
   },
   {
     "id": "prod_015",
@@ -173,11 +288,19 @@
     "category": "gaming",
     "price": 799,
     "stock": 42,
-    "tags": ["mousepad", "RGB", "gaming", "desk"],
+    "tags": [
+      "mousepad",
+      "RGB",
+      "gaming",
+      "desk"
+    ],
     "description": "Extended RGB gaming mousepad with 12 lighting modes, non-slip rubber base, and smooth micro-weave surface.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "🖱️"
+    "image": "🖱️",
+    "brand": "KeyForge",
+    "rating": 4.4,
+    "rating_count": 4108
   },
   {
     "id": "prod_016",
@@ -185,11 +308,19 @@
     "category": "health",
     "price": 2799,
     "stock": 20,
-    "tags": ["walking", "shoes", "comfort", "orthopedic"],
+    "tags": [
+      "walking",
+      "shoes",
+      "comfort",
+      "orthopedic"
+    ],
     "description": "Ultra-lightweight walking shoes with memory foam insole, wide-fit design, and slip-resistant sole for all-day comfort.",
     "discount_percent": 0,
     "discount_active": false,
-    "image": "👞"
+    "image": "👞",
+    "brand": "ComfortStep",
+    "rating": 4.5,
+    "rating_count": 5876
   },
   {
     "id": "prod_017",
@@ -197,11 +328,22 @@
     "category": "electronics",
     "price": 38999,
     "stock": 15,
-    "tags": ["mobile", "phone", "smartphone", "5g", "android", "camera", "cellular"],
+    "tags": [
+      "mobile",
+      "phone",
+      "smartphone",
+      "5g",
+      "android",
+      "camera",
+      "cellular"
+    ],
     "description": "Flagship 5G smartphone with 120Hz AMOLED display, 108MP AI camera, 5000mAh all-day battery, and 67W Turbo charging.",
     "discount_percent": 10,
     "discount_active": true,
-    "image": "📱"
+    "image": "📱",
+    "brand": "Novaphone",
+    "rating": 4.3,
+    "rating_count": 18230
   },
   {
     "id": "prod_018",
@@ -209,10 +351,20 @@
     "category": "electronics",
     "price": 1899,
     "stock": 35,
-    "tags": ["mobile", "phone", "charger", "wireless", "stand", "accessories"],
+    "tags": [
+      "mobile",
+      "phone",
+      "charger",
+      "wireless",
+      "stand",
+      "accessories"
+    ],
     "description": "Fast 15W Qi-certified wireless charging stand for mobile phone, smartwatch, and earbuds with overcharge protection.",
     "discount_percent": 15,
     "discount_active": true,
-    "image": "🔋"
+    "image": "🔋",
+    "brand": "Portix",
+    "rating": 4.2,
+    "rating_count": 6720
   }
 ]
